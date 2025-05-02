@@ -1,0 +1,15 @@
+[Unit]
+Description=Wazuh Alert System Service
+After=network-online.target sound.target
+Wants=sound.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 5
+ExecStartPre=/usr/local/bin/node /home/radeck/wazuh-alert-system/backend/server.js
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

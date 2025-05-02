@@ -1,0 +1,32 @@
+# Node.js dependencies
+
+node\_modules/
+
+# Logs
+
+logs/
+\*.log
+
+# OS / Editor files
+
+.DS\_Store
+Thumbs.db
+.vscode/
+
+# Env & config
+
+.env
+
+# Compiled or temp files
+
+\*.pyc
+**pycache**/
+
+# Frontend build
+
+/dist/
+/build/
+
+# Optional: ignore alert archive if implemented later
+
+alerts-archive.json
