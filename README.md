@@ -135,8 +135,6 @@ http://<dashboard-ip>:3000/api/alerts
 
 MIT License.
 
-Copyright (c) 2025 [topoBasah]
-
 ## 👨‍💻 Developer
 
 Beliin kopi? boleh banget: [Buat Beli Kopi](https://saweria.co/topobasah)
