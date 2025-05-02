@@ -7,9 +7,9 @@ const WebSocket = require('ws');
 const path = require('path');
 
 // === Konfigurasi ===
-const WAZUH_API_URL = 'https://192.168.95.70:55000';
+const WAZUH_API_URL = 'https://<ip-wazuh-server>:55000';
 const WAZUH_USER = 'wazuh-wui';
-const WAZUH_PASSWORD = '0WQUW+6EcllnKSMTtEe+Rv7lFP?9VDit';
+const WAZUH_PASSWORD = '<wazuh-api-user-password>';
 
 // const SSL_OPTIONS = {
 //   key: fs.readFileSync(path.join(__dirname, 'certs/server-key.pem')),
