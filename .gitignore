@@ -30,3 +30,6 @@ Thumbs.db
 # Optional: ignore alert archive if implemented later
 
 alerts-archive.json
+
+# Certificate file
+backend/certs
