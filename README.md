@@ -62,14 +62,28 @@ const WAZUH_PASSWORD = "your-password";
 
 ## 📡 Integrasi dengan Wazuh Server
 
-Untuk mengirim alert dari Wazuh ke dashboard ini, gunakan script `custom-webhook.py` pada server Wazuh.
+Untuk mengirim alert dari Wazuh ke dashboard ini, gunakan script `custom-webhook` dan `custom-webhook.py` yang berada pada foler `on-wazuh-server` dan letakan pada server Wazuh. Namun sebelumnya kamu edit file `custom-webhook.py` ubah bagian berikut dan sesuaikan dengan ip webhook server:
+
+```bash
+
+ # Kirim ke webhook
+response = requests.post(
+    "http://<ip-server-webhook>:3000/api/alerts",  # Ganti sesuai webhook kamu
+    data=json.dumps(payload),
+    headers={'Content-type': 'application/json'}
+)
+
+```
 
 ### 📁 Penempatan File
 
-Tempatkan file `custom-webhook.py` ke dalam direktori:
+Tempatkan file `custom-webhook` dan `custom-webhook.py` ke dalam direktori:
 
 ```
+
+/var/ossec/integrations/custom-webhook
 /var/ossec/integrations/custom-webhook.py
+
 ```
 
 ### ⚙️ Konfigurasi `ossec.conf`
@@ -90,7 +104,7 @@ Tambahkan konfigurasi berikut di dalam `<integration>` block Wazuh:
 Pastikan file dapat dieksekusi:
 
 ```bash
-chmod +x /var/ossec/integrations/custom-webhook.py
+chmod +x /var/ossec/integrations/custom-webhook
 ```
 
 ### 🔁 Restart Wazuh Manager
