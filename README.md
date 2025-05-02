@@ -17,8 +17,8 @@ Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh melalui cu
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/username/wazuh-alert-dashboard.git
-cd wazuh-alert-dashboard
+git clone https://github.com/username/wazuh-alert-webhook.git
+cd wazuh-alert-webhook
 ```
 
 ### 2. Jalankan Server
@@ -80,7 +80,7 @@ Tambahkan konfigurasi berikut di dalam `<integration>` block Wazuh:
 <integration>
   <name>custom-webhook</name>
   <hook_url>local</hook_url>
-  <level>3</level>
+  <level>5</level>
   <alert_format>json</alert_format>
 </integration>
 ```
@@ -114,3 +114,10 @@ _Tambahkan tangkapan layar di sini (opsional tapi disarankan)_
 ## 📄 Lisensi
 
 MIT License.
+
+## 👨‍💻 Developer
+
+Beliin kopi? boleh banget: [Buat Beli Kopi](https://saweria.co/topobasah)
+
+    Developed with ❤️ by TopoBasah
+    https://cobaterus.com
