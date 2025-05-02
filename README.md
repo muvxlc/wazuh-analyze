@@ -123,7 +123,7 @@ http://<dashboard-ip>:3000/api/alerts
 
 ## 📷 Screenshot
 
-_Tambahkan tangkapan layar di sini (opsional tapi disarankan)_
+![alt text](image.png)
 
 ## 📄 Lisensi
 
