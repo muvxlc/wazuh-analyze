@@ -1,14 +1,12 @@
 # 🛡️ Wazuh Alert Monitoring System
 
-Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh melalui custom webhook.
-
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Node.js](https://img.shields.io/badge/Backend-Node.js-blue)
 ![Python](https://img.shields.io/badge/Integration-Python-blue)
 ![WebSocket](https://img.shields.io/badge/Realtime-WebSocket-informational)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh...
+Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh melalui custom webhook.
 
 ## 📦 Fitur
 
