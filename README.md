@@ -40,7 +40,7 @@ node server.js
 Buka browser dan kunjungi:
 
 ```
-http://localhost:3000
+http://<dashboard-ip>:3000
 ```
 
 ## 🗂️ Struktur Folder
