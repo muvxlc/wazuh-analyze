@@ -1,6 +1,14 @@
-# 🛡️ Wazuh Alert Dashboard
+# 🛡️ Wazuh Alert Monitoring System
 
 Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh melalui custom webhook.
+
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Node.js](https://img.shields.io/badge/Backend-Node.js-blue)
+![Python](https://img.shields.io/badge/Integration-Python-blue)
+![WebSocket](https://img.shields.io/badge/Realtime-WebSocket-informational)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+
+Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh...
 
 ## 📦 Fitur
 
@@ -17,7 +25,7 @@ Web dashboard ringan dan real-time untuk memantau _alerts_ dari Wazuh melalui cu
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/username/wazuh-alert-webhook.git
+git clone https://github.com/topobash/wazuh-alert-webhook.git
 cd wazuh-alert-webhook
 ```
 
@@ -128,6 +136,8 @@ http://<dashboard-ip>:3000/api/alerts
 ## 📄 Lisensi
 
 MIT License.
+
+Copyright (c) 2025 [topoBasah]
 
 ## 👨‍💻 Developer
 
