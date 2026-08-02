@@ -1,26 +1,29 @@
 # Node.js dependencies
 
-node\_modules/
+node_modules/
 
 # Logs
 
 logs/
-\*.log
+*.log
 
 # OS / Editor files
 
-.DS\_Store
+.DS_Store
 Thumbs.db
 .vscode/
 
 # Env & config
 
 .env
+.env.*
+!.env.example
+!**/.env.example
 
 # Compiled or temp files
 
-\*.pyc
-**pycache**/
+*.pyc
+__pycache__/
 
 # Frontend build
 
