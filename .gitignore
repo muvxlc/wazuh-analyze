@@ -34,5 +34,8 @@ __pycache__/
 
 alerts-archive.json
 
+# Local Git worktrees
+.worktrees/
+
 # Certificate file
 backend/certs
