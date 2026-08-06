@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   return (
-    <html lang={locale} className={ibmPlexSansThai.variable}>
+    <html lang={locale} className={ibmPlexSansThai.variable} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
