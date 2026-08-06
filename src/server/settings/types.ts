@@ -1,0 +1,16 @@
+export type SystemSettingKey =
+  | "wazuhApiUrl"
+  | "wazuhUsername"
+  | "wazuhPassword"
+  | "wazuhCaPath"
+  | "wazuhAllowInsecureTls"
+  | "alertRetentionDays"
+  | "maintenanceBatchSize"
+  | "appUrl"
+  | "socAutoAnalyze"
+  | "socAutoAnalyzeMinLevel"
+  | "tiProviders"
+  | "abuseipdbKey"
+  | "otxKey"
+  | "tiMinLevel"
+  | "tiCacheTtlDays";

@@ -6,7 +6,7 @@
 
 **Architecture:** Build a Next.js 16 App Router modular monolith. Keep business rules in server-only domain modules, use Drizzle with one PostgreSQL instance, expose narrow route handlers, and update dashboard data through cursor polling every 3-5 seconds. Preserve legacy runtime files until signed ingestion, live Wazuh access, and end-to-end parity pass.
 
-**Tech Stack:** Next.js 16.2.12, React 19.2.8, TypeScript 7.0.2, PostgreSQL, Drizzle ORM 0.45.2, drizzle-kit 0.31.10, next-intl 4.13.4, argon2 0.45.1, Zod 4.4.3, Vitest 4.1.10, Testing Library, Playwright 1.62.1, Python 3 standard library plus `requests` on Wazuh host.
+**Tech Stack:** Next.js 16.2.12, React 19.2.8, TypeScript 5.9.3, PostgreSQL, Drizzle ORM 0.45.2, drizzle-kit 0.31.10, next-intl 4.13.4, argon2 0.45.1, Zod 4.4.3, Vitest 4.1.10, Testing Library, Playwright 1.62.1, Python 3 standard library plus `requests` on Wazuh host.
 
 ## Global Constraints
 

@@ -1,57 +1,107 @@
 #!/usr/bin/env python3
 
-import requests
-import json
-import sys
 import os
+import json
+import time
+import hmac
+import hashlib
+import requests
+import sys
+
+# Protocol Configuration
+MAX_ATTEMPTS = int(os.environ.get("WAZUH_WEBHOOK_MAX_ATTEMPTS", "4"))
+CONNECT_TIMEOUT_SECONDS = int(os.environ.get("WAZUH_WEBHOOK_CONNECT_TIMEOUT", "3"))
+READ_TIMEOUT_SECONDS = int(os.environ.get("WAZUH_WEBHOOK_READ_TIMEOUT", "10"))
+MAX_BACKOFF_SECONDS = int(os.environ.get("WAZUH_WEBHOOK_MAX_BACKOFF", "60"))
+
+def serialize_alert(alert: dict) -> bytes:
+    """Serialize alert cleanly without whitespaces to match TS backend expectations"""
+    return json.dumps(alert, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+def create_signature(secret: bytes, timestamp: str, body: bytes) -> str:
+    """Compute HMAC-SHA256 over timestamp and exact body bytes."""
+    canonical = timestamp.encode("ascii") + b"." + body
+    return "sha256=" + hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+
+def retry_delay(response: requests.Response, attempt: int) -> float:
+    """Compute retry delay based on Retry-After header or exponential backoff"""
+    if "Retry-After" in response.headers:
+        try:
+            delay = int(response.headers["Retry-After"])
+            return min(delay, MAX_BACKOFF_SECONDS)
+        except ValueError:
+            pass
+    return min(2 ** attempt, MAX_BACKOFF_SECONDS)
+
+def send_alert(endpoint: str, secret: bytes, body: bytes) -> int:
+    timestamp = str(int(time.time()))
+    headers = {
+        "content-type": "application/json",
+        "x-wazuh-timestamp": timestamp,
+        "x-wazuh-signature": create_signature(secret, timestamp, body),
+    }
+
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            response = requests.post(
+                endpoint,
+                data=body,
+                headers=headers,
+                timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
+            )
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt + 1 == MAX_ATTEMPTS:
+                raise
+            time.sleep(min(2 ** attempt, MAX_BACKOFF_SECONDS))
+            continue
+
+        if response.status_code == 429 or response.status_code >= 500:
+            if attempt + 1 < MAX_ATTEMPTS:
+                delay = retry_delay(response, attempt)
+                time.sleep(delay)
+                continue
+        return response.status_code
+
+    raise RuntimeError("unreachable retry state")
 
 def main():
     try:
-        # Baca file alert yang diberikan oleh Wazuh
+        if len(sys.argv) < 2:
+            print("Usage: custom-webhook.py <alert_file>", file=sys.stderr)
+            sys.exit(1)
+
         alert_file_path = sys.argv[1]
 
-        # Membaca isi file alert
+        endpoint = os.environ.get("WAZUH_WEBHOOK_URL")
+        secret_str = os.environ.get("WAZUH_WEBHOOK_SECRET")
+
+        if not endpoint or not secret_str:
+            print("Missing WAZUH_WEBHOOK_URL or WAZUH_WEBHOOK_SECRET in environment", file=sys.stderr)
+            sys.exit(1)
+
+        secret = secret_str.encode("utf-8")
+
         if not os.path.exists(alert_file_path):
-            raise FileNotFoundError(f"File not found: {alert_file_path}")
+            print(f"File not found: {alert_file_path}", file=sys.stderr)
+            sys.exit(1)
 
-        with open(alert_file_path, 'r') as f:
-            alert_data = f.read()
+        with open(alert_file_path, 'r', encoding='utf-8') as f:
+            alert_data = json.load(f)
 
-        # Debug log (opsional)
-        with open("/var/ossec/logs/webhook-python-debug.log", "a") as f:
-            f.write("== New Alert ==\n")
-            f.write(alert_data + "\n\n")
+        body = serialize_alert(alert_data)
 
-        # Parsing JSON alert
-        data = json.loads(alert_data)
+        status = send_alert(endpoint, secret, body)
 
-        # Ekstrak field penting
-        alert_level = data.get('rule', {}).get('level', "N/A")
-        description = data.get('rule', {}).get('description', "N/A")
-        agent_name = data.get('agent', {}).get('name', "N/A")
-
-        payload = {
-            "agent": agent_name,
-            "alert_level": alert_level,
-            "description": description,
-            "raw_alert": data  # Jika masih ingin mengirim seluruh alert juga
-        }
-
-        # Kirim ke webhook
-        response = requests.post(
-            "http://<ip-server-webhook>:3000/api/alerts",  # Ganti sesuai webhook kamu
-            data=json.dumps(payload),
-            headers={'Content-type': 'application/json'}
-        )
-
-        if response.status_code == 200:
-            print("Alert sent to webhook")
+        if status in (200, 202):
+            print("Alert successfully sent to dashboard webhook")
+            sys.exit(0)
         else:
-            print(f"Failed to send alert: {response.status_code}, Response: {response.text}")
+            print(f"Failed to send alert, terminal status code: {status}", file=sys.stderr)
+            sys.exit(1)
 
     except Exception as e:
-        with open("/var/ossec/logs/webhook-python-error.log", "a") as f:
-            f.write(f"Error: {str(e)}\n")
+        print(f"Webhook error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

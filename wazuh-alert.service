@@ -1,15 +1,19 @@
 [Unit]
-Description=Wazuh Alert System Service
-After=network-online.target sound.target
-Wants=sound.target
+Description=Next.js Wazuh Dashboard Service
+After=network-online.target
 Requires=network-online.target
 
 [Service]
 Type=simple
-ExecStartPre=/bin/sleep 5
-ExecStartPre=/usr/local/bin/node /home/radeck/wazuh-alert-system/backend/server.js
+User=wazuh-dashboard
+Group=wazuh-dashboard
+WorkingDirectory=/opt/wazuh-alert-dashboard
+EnvironmentFile=/opt/wazuh-alert-dashboard/.env.production
+ExecStart=/usr/bin/env npm run start
 Restart=always
 RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target

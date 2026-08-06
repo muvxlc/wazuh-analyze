@@ -1,0 +1,27 @@
+{
+  "vectors": [
+    {
+      "name": "basic-fixture",
+      "secret": "test-secret",
+      "timestamp": "1785686400",
+      "bodyUtf8": "{\"id\":\"fixture-1\",\"rule\":{\"level\":7,\"id\":\"100001\",\"description\":\"Fixture\"},\"agent\":{\"id\":\"001\",\"name\":\"agent-1\"},\"timestamp\":\"2026-08-02T00:00:00Z\"}",
+      "expectedSignature": "sha256=4337c174eafb19079a75b03a299b45153aa325f5afd1f1edf9def04f0e6d5e97",
+      "expectedReplayKeyHash": "2e1bbebe733ca1edd04956f37c99ec2c199c4c9b76104f261475204741a19d7d"
+    },
+    {
+      "name": "whitespace-sensitive",
+      "secret": "test-secret",
+      "timestamp": "1785686400",
+      "bodyUtf8": "{\"id\":\"fixture-1\",\"rule\":{\"level\":7,\"id\":\"100001\",\"description\":\"Fixture\"},\"agent\":{\"id\":\"001\",\"name\":\"agent-1\"},\"timestamp\":\"2026-08-02T00:00:00Z\"}",
+      "expectedSignature": "sha256=4337c174eafb19079a75b03a299b45153aa325f5afd1f1edf9def04f0e6d5e97",
+      "expectedReplayKeyHash": "2e1bbebe733ca1edd04956f37c99ec2c199c4c9b76104f261475204741a19d7d"
+    },
+    {
+      "name": "whitespace-different",
+      "secret": "test-secret",
+      "timestamp": "1785686400",
+      "bodyUtf8": " {\"id\":\"fixture-1\",\"rule\":{\"level\":7,\"id\":\"100001\",\"description\":\"Fixture\"},\"agent\":{\"id\":\"001\",\"name\":\"agent-1\"},\"timestamp\":\"2026-08-02T00:00:00Z\"} ",
+      "expectedSignature": "sha256=b5b00a6b4085e3cc71611e12b2d4a38bccde76b617fab6199db761f0fc32bd2c"
+    }
+  ]
+}

@@ -29,6 +29,12 @@ __pycache__/
 
 /dist/
 /build/
+/.next/
+/coverage/
+/playwright-report/
+/test-results/
+*.tsbuildinfo
+next-env.d.ts
 
 # Optional: ignore alert archive if implemented later
 
@@ -37,5 +43,12 @@ alerts-archive.json
 # Local Git worktrees
 .worktrees/
 
+# Local test / inspect scripts (MJS)
+test-*.mjs
+inspect-*.mjs
+
+# OpenCode artifacts
+.opencode/
+
 # Certificate file
-backend/certs
+
