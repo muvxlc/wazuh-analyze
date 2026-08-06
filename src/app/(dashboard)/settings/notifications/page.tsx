@@ -208,7 +208,7 @@ export default function SettingsNotificationsPage() {
           {channels?.length === 0 && <p className="text-sm text-[var(--color-ink-muted)] py-2">No notification channels set up yet.</p>}
         </div>
 
-        <form onSubmit={(e) => void addChannel(e)} className="space-y-3 pt-4 border-t border-[var(--color-hairline)]">
+        <form suppressHydrationWarning onSubmit={(e) => void addChannel(e)} className="space-y-3 pt-4 border-t border-[var(--color-hairline)]">
           <p className="text-xs font-medium text-[var(--color-ink-muted)]">Add Channel</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
@@ -280,7 +280,7 @@ export default function SettingsNotificationsPage() {
         </div>
 
         {channels && channels.length > 0 && (
-          <form onSubmit={(e) => void addRule(e)} className="space-y-3 pt-4 border-t border-[var(--color-hairline)]">
+          <form suppressHydrationWarning onSubmit={(e) => void addRule(e)} className="space-y-3 pt-4 border-t border-[var(--color-hairline)]">
             <p className="text-xs font-medium text-[var(--color-ink-muted)]">Bind Event Rule</p>
             <div className="grid gap-3 sm:grid-cols-3">
               <select className="auth-input text-sm" value={eventType} onChange={(e) => setEventType(e.target.value)}>

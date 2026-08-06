@@ -97,7 +97,7 @@ export default function SettingsLocalPage() {
         <p className="mb-2 text-sm font-medium text-[var(--color-primary-deep)]">Settings</p>
         <h1>{t("local")}</h1>
       </header>
-      <form onSubmit={handleSubmit} className="panel p-6 space-y-4">
+      <form suppressHydrationWarning onSubmit={handleSubmit} className="panel p-6 space-y-4">
         {state.saved && (
           <p className="text-sm text-green-600" role="status">{t("local-save-success")}</p>
         )}

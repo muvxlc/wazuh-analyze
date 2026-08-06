@@ -49,7 +49,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="form-stack">
+      <form onSubmit={handleSubmit} className="form-stack" suppressHydrationWarning>
         <div className="form-field">
           <label htmlFor="email" className="text-[13px] font-medium">{t("email")}</label>
           <input
@@ -58,6 +58,7 @@ export default function LoginPage() {
             type="email"
             required
             className="auth-input"
+            suppressHydrationWarning
           />
         </div>
 
@@ -69,6 +70,7 @@ export default function LoginPage() {
             type="password"
             required
             className="auth-input"
+            suppressHydrationWarning
           />
         </div>
 

@@ -227,7 +227,7 @@ export default function SettingsAiPage() {
         ))}
       </div>
 
-      <form onSubmit={submit} className="panel space-y-4 p-6">
+      <form suppressHydrationWarning onSubmit={submit} className="panel space-y-4 p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">
             {draft.id ? t("ai-conn-edit") : t("ai-conn-add")}

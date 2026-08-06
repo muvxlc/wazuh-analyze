@@ -138,7 +138,7 @@ export default function ChatPage() {
             {error}
           </p>
         )}
-        <form onSubmit={submit} className="flex gap-2 border-t border-[var(--color-hairline)] p-4">
+        <form suppressHydrationWarning onSubmit={submit} className="flex gap-2 border-t border-[var(--color-hairline)] p-4">
           <label className="sr-only" htmlFor="chat-input">
             Message
           </label>
