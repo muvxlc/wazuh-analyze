@@ -90,7 +90,7 @@ export function IncidentsClient({ canManage }: { readonly canManage: boolean }) 
                 : "bg-[var(--color-canvas-soft)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
             }`}
           >
-            {st === "all" ? t("all-statuses") : t(`status-${st}` as unknown as any)}
+            {st === "all" ? t("all-statuses") : t(`status-${st}` as any)}
           </button>
         ))}
       </div>

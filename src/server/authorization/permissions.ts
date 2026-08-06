@@ -39,7 +39,7 @@ export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export interface ActorContext {
-  userId: string;
+  userId: string | null;
   role: Role;
   permissions: Set<string>;
 }

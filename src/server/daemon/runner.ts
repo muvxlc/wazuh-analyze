@@ -11,7 +11,7 @@ let loopPromise: Promise<void> | null = null;
 let bgDb: ReturnType<typeof createDatabase> | null = null;
 
 const SYSTEM_ACTOR: ActorContext = {
-  userId: null as any,
+  userId: null,
   role: "admin",
   permissions: new Set(["alerts.analyze", "alerts.details", "incidents.manage", "notifications.manage"]),
 };
