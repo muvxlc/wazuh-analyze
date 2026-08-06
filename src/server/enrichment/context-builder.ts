@@ -15,11 +15,29 @@ import {
   fetchSyscollector,
 } from "../wazuh/inventory";
 import { findRelatedAlerts, type RelatedAlert } from "./correlate";
+import { fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { resolveRecipe, type EnrichmentKey } from "./recipe";
 import { lookupIp, type TiCacheStore, type TiProvider, type TiVerdict } from "../ti/provider";
 
 /** Soft budget for the serialized context block fed to the LLM. */
 export const CONTEXT_BUDGET_BYTES = 12_000;
+const VULNERABILITY_BUDGET_BYTES = 3_000;
+
+function capVulnerabilities(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  const critical = value.filter((item) =>
+    typeof item === "object" && item !== null &&
+    String((item as { severity?: unknown }).severity ?? "").toLowerCase() === "critical",
+  );
+  const ordered = [...critical, ...value.filter((item) => !critical.includes(item))];
+  const kept: unknown[] = [];
+  for (const item of ordered) {
+    const candidate = [...kept, item];
+    if (JSON.stringify(candidate).length > VULNERABILITY_BUDGET_BYTES) break;
+    kept.push(item);
+  }
+  return kept;
+}
 
 export interface BuildContextInput {
   alertId: string;
@@ -113,6 +131,7 @@ export async function buildAnalysisContext(
     ports: async () => (wazuh && agentId ? fetchPorts(wazuh.config, agentId, { fetchFn }) : null),
     packages: async () => (wazuh && agentId ? fetchPackages(wazuh.config, agentId, { fetchFn }) : null),
     services: async () => (wazuh && agentId ? fetchServices(wazuh.config, agentId, { fetchFn }) : null),
+    vulnerabilities: async () => (wazuh && agentId ? fetchAgentVulnerabilities(wazuh.config, agentId, 20) : null),
     threatIntel: async () =>
       srcip && deps.ti
         ? lookupIp(srcip, deps.ti.providers, { cache: deps.ti.cache, fetchFn: deps.ti.fetchFn })
@@ -135,12 +154,16 @@ export async function buildAnalysisContext(
       if (value) enrichmentsUsed.push(key);
       return;
     }
+    let cappedValue = value;
+    if (key === "vulnerabilities") {
+      cappedValue = capVulnerabilities(value);
+    }
     const isEmpty =
-      value === null ||
-      value === undefined ||
-      (Array.isArray(value) && value.length === 0);
+      cappedValue === null ||
+      cappedValue === undefined ||
+      (Array.isArray(cappedValue) && cappedValue.length === 0);
     if (isEmpty) return;
-    sections[key] = value;
+    sections[key] = cappedValue;
     enrichmentsUsed.push(key);
   });
 
