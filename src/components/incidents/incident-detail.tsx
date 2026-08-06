@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { IncidentDetail, IncidentStatus } from "../../server/incidents/types";
 import { getIncidentTransitionMatrix } from "../../server/incidents/workflow";
 import { IncidentActions } from "./incident-actions";
+import { IncidentNotes } from "./incident-notes";
 
 interface Props {
   readonly initialIncident: IncidentDetail;
@@ -81,6 +82,8 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
       )}
 
       <IncidentActions incidentId={incident.id} canApprove={canApprove} />
+
+      <IncidentNotes incidentId={incident.id} canManage={canManage} />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">

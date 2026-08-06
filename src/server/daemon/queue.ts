@@ -15,6 +15,9 @@ import { RequestMetadata } from "../http/request-metadata";
 import { NotificationEvent } from "../notifications/render";
 import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
 import { executeAction } from "../actions/action-executor";
+import { runWeeklyReport } from "../reports/report-job";
+
+export const QUEUE_WEEKLY_REPORT = "weekly-soc-report";
 
 export const QUEUE_ANALYZE_ALERT = "analyze-alert";
 export const QUEUE_DISPATCH_NOTIFICATION = "dispatch-notification";
@@ -79,6 +82,11 @@ export async function registerQueues(
         throw err; // Trigger pg-boss retry
       }
     }
+  });
+
+  await pgBoss.work(QUEUE_WEEKLY_REPORT, async () => {
+    console.log("[Queue:report] Generating weekly report");
+    await runWeeklyReport(bg.db);
   });
 
   console.log("[PgBoss] Queues registered");

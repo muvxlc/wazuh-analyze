@@ -11,7 +11,8 @@ export type NotificationEventType =
   | "alert.high_severity"
   | "incident.created"
   | "incident.escalated"
-  | "verdict.confident_real";
+  | "verdict.confident_real"
+  | "report.weekly";
 
 export interface NotificationEvent {
   type: NotificationEventType;
@@ -28,12 +29,14 @@ export function renderNotification(
   // ponytail: Simple deterministic formatting rules without external templating engine.
   const appUrl = baseAppUrl.replace(/\/$/, "");
   const isAlert = event.type === "alert.high_severity" || event.type === "verdict.confident_real";
-  const url = isAlert ? `${appUrl}/alerts/${event.targetId}` : `${appUrl}/incidents/${event.targetId}`;
+  const isReport = event.type === "report.weekly";
+  const url = isAlert ? `${appUrl}/alerts/${event.targetId}` : isReport ? `${appUrl}/dashboard` : `${appUrl}/incidents/${event.targetId}`;
 
   let titlePrefix = "🚨 [Wazuh Alert]";
   if (event.type === "incident.created") titlePrefix = "⚠️ [New Incident]";
   else if (event.type === "incident.escalated") titlePrefix = "🔥 [Incident Escalated]";
   else if (event.type === "verdict.confident_real") titlePrefix = "🤖 [Confirmed Threat]";
+  else if (isReport) titlePrefix = "📊 [Weekly Report]";
 
   const severityStr = event.severity !== undefined && event.severity !== null ? String(event.severity) : "N/A";
 

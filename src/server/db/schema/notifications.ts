@@ -22,6 +22,7 @@ export const notificationEventTypeEnum = pgEnum("notification_event_type", [
   "incident.created",
   "incident.escalated",
   "verdict.confident_real",
+  "report.weekly",
 ]);
 
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", [

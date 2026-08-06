@@ -1,6 +1,6 @@
 import { AppConfig } from "../config";
 import { getPgBoss, stopPgBoss } from "./pg-boss";
-import { registerQueues, QUEUE_ANALYZE_ALERT } from "./queue";
+import { registerQueues, QUEUE_WEEKLY_REPORT } from "./queue";
 
 let isRunning = false;
 
@@ -11,8 +11,8 @@ export async function startWorker(config: AppConfig) {
   const boss = await getPgBoss(config);
   await registerQueues(boss, config);
 
-  // ponytail: schedule periodic alert sweeps here if needed (e.g. boss.schedule)
-  // For now, enqueueAlertAnalysis is triggered directly from alert ingest route.
+  // Weekly SOC report: Mondays 09:00 (server-local cron). Idempotent — schedule() upserts.
+  await boss.schedule(QUEUE_WEEKLY_REPORT, "0 2 * * 1", {}, { tz: "UTC" });
 
   console.log("[Worker] Started");
 }
