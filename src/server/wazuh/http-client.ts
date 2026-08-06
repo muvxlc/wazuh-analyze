@@ -160,3 +160,45 @@ export async function fetchAgents(
     fetchFn,
   });
 }
+
+export async function wazuhPut(
+  config: WazuhConfig,
+  path: string,
+  body: unknown,
+  options: WazuhGetOptions = {},
+): Promise<unknown> {
+  const fetchFn = options.fetchFn ?? (undiciFetch as unknown as typeof fetch);
+  const token = await authenticate(config, fetchFn);
+  const url = new URL(path, config.apiUrl);
+  if (options.query) {
+    for (const [key, value] of Object.entries(options.query)) {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      ...buildTlsOptions(config),
+    },
+    options.timeoutMs ?? 10_000,
+    fetchFn,
+  );
+
+  if (!res.ok) {
+    if (res.status === 401) clearTokenCache();
+    throw new WazuhError(
+      "wazuh_api_error",
+      res.status,
+      `Wazuh API ${path} returned ${res.status}`,
+    );
+  }
+
+  return res.json();
+}

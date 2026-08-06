@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { IncidentDetail, IncidentStatus } from "../../server/incidents/types";
 import { getIncidentTransitionMatrix } from "../../server/incidents/workflow";
+import { IncidentActions } from "./incident-actions";
 
 interface Props {
   readonly initialIncident: IncidentDetail;
   readonly canManage: boolean;
+  readonly canApprove: boolean;
 }
 
 const MATRIX = getIncidentTransitionMatrix();
 
 // ponytail: single-column reactive detail view with direct transition triggers, omitting bloated tab navigations.
-export function IncidentDetailView({ initialIncident, canManage }: Props) {
+export function IncidentDetailView({ initialIncident, canManage, canApprove }: Props) {
   const t = useTranslations("incidents");
   const [incident, setIncident] = useState<IncidentDetail>(initialIncident);
   const [updating, setUpdating] = useState(false);
@@ -77,6 +79,8 @@ export function IncidentDetailView({ initialIncident, canManage }: Props) {
           {error && <span className="text-xs text-[var(--color-danger-ink)]">{error}</span>}
         </section>
       )}
+
+      <IncidentActions incidentId={incident.id} canApprove={canApprove} />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">

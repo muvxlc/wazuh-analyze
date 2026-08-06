@@ -15,6 +15,7 @@ export default async function IncidentDetailPage({
   const { db, pool } = createDatabase(config.databaseUrl);
   let incident;
   let canManage = false;
+  let canApprove = false;
   try {
     const user = await currentUser(db);
     if (!user || !user.permissions.has(PERMISSIONS.incidentsRead)) {
@@ -26,11 +27,12 @@ export default async function IncidentDetailPage({
       (await params).id,
     );
     canManage = user.permissions.has(PERMISSIONS.incidentsManage);
+    canApprove = user.permissions.has(PERMISSIONS.actionsApprove as string);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("incident_not_found")) notFound();
     throw error;
   } finally {
     await pool.end();
   }
-  return <IncidentDetailView initialIncident={incident!} canManage={canManage} />;
+  return <IncidentDetailView initialIncident={incident!} canManage={canManage} canApprove={canApprove} />;
 }
