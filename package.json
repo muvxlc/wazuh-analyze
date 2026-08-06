@@ -1,0 +1,51 @@
+{
+  "name": "wazuh-alert-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test",
+    "test:live": "vitest run tests/live",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "argon2": "0.45.1",
+    "drizzle-orm": "0.45.2",
+    "next": "16.2.12",
+    "next-intl": "^4.13.4",
+    "pg": "8.16.3",
+    "postgres": "3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@testing-library/jest-dom": "7.0.0",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "26.1.2",
+    "@types/pg": "8.15.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.12",
+    "jsdom": "29.0.0",
+    "tsx": "^4.23.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

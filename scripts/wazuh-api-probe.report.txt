@@ -1,0 +1,54 @@
+
+=== AUTH ===
+  ✅ token ได้ (406 chars)
+
+=== หา active agent (ไม่ใช่ manager 000) ===
+  ✅ [200] GET /agents → 3 items/3
+  → ใช้ agent_id=001 (mac-office2 / active)
+  ✅ [200] [Health agents-summary] GET /agents/summary/status → obj{connection,configuration}
+  ✅ [200] [Health manager-status] GET /manager/status → 1 items/1
+  ✅ [200] [Health manager-info] GET /manager/info → 1 items/1
+  ✅ [200] [Health cluster-status] GET /cluster/status → obj{enabled,running}
+  ✅ [200] [MITRE techniques (list)] GET /mitre/techniques?limit=2 → 2 items/750
+  ✅ [200] [Compliance pci_dss] GET /rules/requirement/pci_dss?limit=1 → 1 items/60
+  ✅ [200] [Compliance gdpr] GET /rules/requirement/gdpr?limit=1 → 1 items/4
+  ✅ [200] [Compliance hipaa] GET /rules/requirement/hipaa?limit=1 → 1 items/12
+  ✅ [200] [Compliance nist-800-53] GET /rules/requirement/nist-800-53?limit=1 → 1 items/35
+  ✅ [200] [Compliance tsc] GET /rules/requirement/tsc?limit=1 → 1 items/17
+  ✅ [200] [Lists (CDB index)] GET /lists?limit=50 → 7 items/7
+  ✅ [200] [FIM/syscheck] GET /syscheck/001?limit=5 → 5 items/1269
+  ✅ [200] [Malware/rootcheck] GET /rootcheck/001?limit=5 → 5 items/5
+  ✅ [200] [SCA] GET /sca/001 → 1 items/1
+
+=== IT HYGIENE / syscollector ===
+  ✅ [200] [IT-Hygiene processes] GET /syscollector/001/processes?limit=5 → 5 items/939
+  ✅ [200] [IT-Hygiene ports] GET /syscollector/001/ports?limit=5 → 5 items/131
+  ✅ [200] [IT-Hygiene packages] GET /syscollector/001/packages?limit=5 → 5 items/298
+  ✅ [200] [IT-Hygiene services] GET /syscollector/001/services?limit=5 → 5 items/934
+  ✅ [200] [IT-Hygiene users] GET /syscollector/001/users?limit=5 → 5 items/134
+  ✅ [200] [IT-Hygiene groups] GET /syscollector/001/groups?limit=5 → 5 items/163
+  ✅ [200] [IT-Hygiene hardware] GET /syscollector/001/hardware → 1 items/1
+  ✅ [200] [IT-Hygiene hotfixes] GET /syscollector/001/hotfixes?limit=5 → 0 items/0
+  ✅ [200] [IT-Hygiene netiface] GET /syscollector/001/netiface?limit=5 → 5 items/12
+  ✅ [200] [IT-Hygiene netproto] GET /syscollector/001/netproto?limit=5 → 5 items/8
+  ✅ [200] [IT-Hygiene netaddr] GET /syscollector/001/netaddr?limit=5 → 5 items/9
+  ✅ [200] [IT-Hygiene os] GET /syscollector/001/os → 1 items/1
+  ✅ [200] [IT-Hygiene browser_ext] GET /syscollector/001/browser_extensions?limit=5 → 5 items/33
+
+=== EXPECTED SKIP (ข้ามตามแผน — ไม่นับ failure) ===
+  ℹ️ [404] GET /agents/001 (RBAC 404 → ใช้ /agents list) → {"title": "Not Found", "detail": "404: Not Found"} (expected skip)
+  ℹ️ [404] GET /vulnerability_detection/001/cves (vuln ไม่มี REST 4.14.7) → {"title": "Not Found", "detail": "404: Not Found"} (expected skip)
+  ℹ️ [404] GET /vulnerability/001 (vuln legacy) → {"title": "Not Found", "detail": "404: Not Found"} (expected skip)
+
+=== LISTS content (malicious-ioc) ===
+  ℹ️ ไม่เจอ malicious-ioc list (lists ที่มี: , , , , , , )
+
+=== THREAT INTEL ===
+  ✅ [200] AbuseIPDB /check
+      → 8.8.8.8 score=0 reports=90
+  ✅ [200] AbuseIPDB /blacklist
+      → blacklist 5 ips (sample)
+
+=== สรุป ===
+ผ่าน 30/30
+🎉 ทุก endpoint ที่แผนจะใช้ผ่านหมด

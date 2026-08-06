@@ -1,0 +1,46 @@
+:root {
+  --color-primary: #3ecf8e;
+  --color-primary-pressed: #24b47e;
+  --color-ink: #171717;
+  --color-ink-muted: #707070;
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #fafafa;
+  --color-hairline: #dfdfdf;
+  --radius-button: 6px;
+  --radius-panel: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --shadow-panel: 0 1px 3px rgb(0 0 0 / 6%);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans), sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
