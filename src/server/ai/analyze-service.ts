@@ -13,6 +13,7 @@ import { analyzeAlert, type AiVerdict } from "./analysis";
 import { buildAnalysisContext, type AnalysisContext, type ContextDeps } from "../enrichment/context-builder";
 import { buildTiProviders, globalTiCache, type TiProvider } from "../ti/provider";
 import { writeAuditEvent } from "../audit/audit-service";
+import { dispatchNotificationBackground } from "../notifications/dispatcher";
 import type { RequestMetadata } from "../http/request-metadata";
 
 export interface AnalyzeOptions {
@@ -109,6 +110,21 @@ export async function runAlertAnalysis(
     requestId: metadata.requestId,
     detail: { analysisId: row.id, connectionId: conn.id, model: conn.model },
   });
+
+  if (!verdict.likelyFalsePositive && typeof verdict.confidence === "number" && verdict.confidence >= 0.8) {
+    const dbUrl = typeof config === "string" ? process.env.DATABASE_URL : process.env.DATABASE_URL;
+    dispatchNotificationBackground(
+      {
+        type: "verdict.confident_real",
+        targetId: alertId,
+        severity: alert.level,
+        title: verdict.summary ?? `AI verdict on alert ${alert.ruleId ?? alertId}`,
+        summary: verdict.summary,
+      },
+      dbUrl,
+      encryptionKey,
+    );
+  }
 
   return { id: row.id, alertId, verdict };
 }

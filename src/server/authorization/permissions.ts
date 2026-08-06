@@ -32,6 +32,7 @@ export const PERMISSIONS = {
   chatUse: "chat.use",
   superAdminsManage: "super_admins.manage",
   overridesManage: "overrides.manage",
+  notificationsManage: "notifications.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

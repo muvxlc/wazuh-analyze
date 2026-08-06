@@ -5,5 +5,6 @@ export * from "./alerts";
 export * from "./audit";
 export * from "./incidents";
 export * from "./ioc-cache";
+export * from "./notifications";
 export * from "./users";
 export * from "./wazuh";

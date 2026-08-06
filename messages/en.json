@@ -28,6 +28,7 @@
     "settings-local": "Setting",
     "settings-cloud": "Wazuh setting",
     "settings-ai": "AI Setting",
+    "settings-notifications": "Notifications",
     "menu": "Menu",
     "close": "Close"
   },
@@ -46,6 +47,7 @@
   },
   "settings": {
     "title": "Settings",
+    "notifications": "Notifications",
     "local": "Setting",
     "cloud": "Wazuh setting",
     "ai": "AI Setting",

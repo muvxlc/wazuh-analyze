@@ -27,6 +27,7 @@ export const ROLE_DEFAULTS: Readonly<Record<Role, readonly Permission[]>> = {
     "chat.use",
     "super_admins.manage",
     "overrides.manage",
+    "notifications.manage",
   ],
   admin: [
     "dashboard.read",
@@ -50,6 +51,7 @@ export const ROLE_DEFAULTS: Readonly<Record<Role, readonly Permission[]>> = {
     "sessions.revoke",
     "audit.read",
     "chat.use",
+    "notifications.manage",
   ],
   user: [
     "dashboard.read",

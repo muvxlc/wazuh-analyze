@@ -8,6 +8,7 @@ import { toErrorResponse } from "../../../../../server/http/error-response";
 import { getRequestMetadata } from "../../../../../server/http/request-metadata";
 import { AppError } from "../../../../../server/errors";
 import { runAlertAnalysis } from "../../../../../server/ai/analyze-service";
+import { dispatchNotificationBackground } from "../../../../../server/notifications/dispatcher";
 
 const MAX_BODY_SIZE = 1_048_576; // 1 MiB fallback; actual max from config
 
@@ -105,6 +106,19 @@ export async function POST(request: Request): Promise<Response> {
           await bg.pool.end();
         }
       })();
+    }
+
+    if (result.inserted && result.alert.level >= 12) {
+      dispatchNotificationBackground(
+        {
+          type: "alert.high_severity",
+          targetId: result.alert.id,
+          severity: result.alert.level,
+          title: `High severity alert level ${result.alert.level} ingested`,
+        },
+        config.databaseUrl,
+        config.settingsEncryptionKey,
+      );
     }
 
     // Duplicate alert (same fingerprint) -> 409 per spec

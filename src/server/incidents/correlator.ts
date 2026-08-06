@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import type { Database } from "../db/types";
 import * as schema from "../db/schema";
+import { dispatchNotificationBackground } from "../notifications/dispatcher";
 
 export interface CorrelateResult {
   incidentId: string;
@@ -100,6 +101,14 @@ export async function correlateAlert(
       toStatus: "open",
       occurredAt: ts,
       metadata: { reason: "correlator_created", firstAlertId: alert.id },
+    });
+
+    dispatchNotificationBackground({
+      type: "incident.created",
+      targetId: newIncident.id,
+      severity,
+      title,
+      summary: `Triggered by rule ${ruleId} on agent ${agentId}`,
     });
 
     return { incidentId: newIncident.id, created: true };
