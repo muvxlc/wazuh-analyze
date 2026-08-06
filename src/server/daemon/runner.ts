@@ -11,7 +11,7 @@ let loopPromise: Promise<void> | null = null;
 let bgDb: ReturnType<typeof createDatabase> | null = null;
 
 const SYSTEM_ACTOR: ActorContext = {
-  userId: "system-daemon",
+  userId: null as any,
   role: "admin",
   permissions: new Set(["alerts.analyze", "alerts.details", "incidents.manage", "notifications.manage"]),
 };
