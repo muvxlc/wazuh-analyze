@@ -20,6 +20,7 @@
     "dashboard": "Dashboard",
     "alerts": "Alerts",
     "agents": "Agents",
+    "incidents": "Incidents",
     "users": "Users",
     "roles": "Roles",
     "chat": "Chatbot",
@@ -106,5 +107,28 @@
     "ai-conn-test-save-first": "Save the connection before testing.",
     "loading": "Loading…",
     "fetch-error": "Failed to load settings."
+  },
+  "incidents": {
+    "title": "Incidents",
+    "empty": "No incidents yet. Run correlation to group high-severity alerts.",
+    "status-open": "Open",
+    "status-investigating": "Investigating",
+    "status-mitigated": "Mitigated",
+    "status-resolved": "Resolved",
+    "all-statuses": "All statuses",
+    "severity": "Severity",
+    "alerts": "Alerts",
+    "created": "Created",
+    "updated": "Updated",
+    "correlate": "Correlate now",
+    "correlating": "Correlating…",
+    "correlate-done": "Checked {checked}, matched {matched}, created {created}",
+    "correlate-error": "Correlation failed",
+    "transition": "Move to",
+    "timeline": "Timeline",
+    "linked-alerts": "Linked alerts",
+    "agent": "Agent",
+    "rule": "Rule",
+    "load-error": "Failed to load incidents."
   }
 }

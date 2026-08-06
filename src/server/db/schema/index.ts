@@ -3,6 +3,7 @@ export * from "./ai-connections";
 export * from "./alert-analyses";
 export * from "./alerts";
 export * from "./audit";
+export * from "./incidents";
 export * from "./ioc-cache";
 export * from "./users";
 export * from "./wazuh";

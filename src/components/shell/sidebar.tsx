@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Bell, Bot, LayoutDashboard, Network, Settings, ShieldCheck, Users } from "lucide-react";
+import { Bell, Bot, LayoutDashboard, Network, Settings, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { PERMISSIONS, type Permission } from "../../server/authorization/permissions";
 
@@ -27,6 +27,7 @@ const workspaceItems: NavItem[] = [
   { key: "dashboard", href: "/dashboard", permission: PERMISSIONS.dashboardRead, icon: LayoutDashboard },
   { key: "alerts", href: "/alerts", permission: PERMISSIONS.alertsRead, icon: Bell },
   { key: "agents", href: "/agents", permission: PERMISSIONS.agentsRead, icon: Network },
+  { key: "incidents", href: "/incidents", permission: PERMISSIONS.incidentsRead, icon: ShieldAlert },
   { key: "chat", href: "/chat", permission: PERMISSIONS.chatUse, icon: Bot },
 ];
 
