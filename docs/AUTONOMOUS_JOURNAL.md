@@ -59,3 +59,15 @@ Append-only log. After every task/checkpoint, document state + next step so any 
 **Baseline:** Unit 311 | Integration 105. Unit GREEN 311 passed. tsc GREEN. lint GREEN. Drizzle check GREEN.
 **Trade-offs:** Active-response payload maps `payload.agents` + `payload.arguments`; defaults agents to manager `000` if omitted. No live Wazuh execution test (requires authorized Wazuh instance).
 **Next:** Task 5 (scheduled reports + case management).
+
+---
+## Task 5 — 2026-08-07 (scheduled reports + case management)
+**Done:**
+1. Schema: `case_notes` (incident thread) + `reports` (scheduled jobs). Migrations `drizzle/0013_soc_reports.sql`, `0014_report_events.sql` (adds `report.weekly` to notification_event_type).
+2. `src/server/cases/note-service.ts`: list/add case notes. `GET/POST /api/incidents/[id]/notes` with CSRF/auth/Zod.
+3. UI: `IncidentNotes` thread composer rendered in Incident Detail.
+4. `src/server/reports/report-job.ts`: `runWeeklyReport()` aggregates 7-day `getSocMetrics` (MTTD/MTTR/FP-rate/backlog/top-agent) → `enqueueNotification({ type: "report.weekly" })`. pg-boss `weekly-soc-report` queue registered; `worker.ts` schedules cron `0 2 * * 1` (Mondays 02:00 UTC). `render.ts` handles `report.weekly`.
+
+**Baseline:** Unit 311 | Integration 105. Unit GREEN 311 passed. tsc GREEN. lint GREEN. Drizzle check GREEN.
+**Trade-offs:** Single global weekly report; per-report channel targeting deferred (ponytail in report-job.ts). mock-ai.mjs committed (was pre-existing untracked dev script).
+**Next:** All 5 tasks done. Await user review of PRs #2-#6.
