@@ -30,10 +30,6 @@ const patchSchema = z
     wazuhPassword: z.string().min(1).max(500).optional(),
     wazuhCaPath: z.string().max(1_000).optional(),
     wazuhAllowInsecureTls: z.boolean().optional(),
-    lmStudioBaseUrl: z.string().url().optional(),
-    lmStudioModel: z.string().min(1).max(200).optional(),
-    lmStudioApiKey: z.string().min(1).max(500).optional(),
-    lmStudioTimeoutMs: z.number().int().positive().max(300_000).optional(),
     alertRetentionDays: z.number().int().positive().max(3_650).optional(),
     maintenanceBatchSize: z.number().int().positive().max(1_000_000).optional(),
   })
@@ -45,10 +41,6 @@ const BODY_TO_KEY: Record<string, SystemSettingKey> = {
   wazuhPassword: "wazuhPassword",
   wazuhCaPath: "wazuhCaPath",
   wazuhAllowInsecureTls: "wazuhAllowInsecureTls",
-  lmStudioBaseUrl: "lmStudioBaseUrl",
-  lmStudioModel: "lmStudioModel",
-  lmStudioApiKey: "lmStudioApiKey",
-  lmStudioTimeoutMs: "lmStudioTimeoutMs",
   alertRetentionDays: "alertRetentionDays",
   maintenanceBatchSize: "maintenanceBatchSize",
 };

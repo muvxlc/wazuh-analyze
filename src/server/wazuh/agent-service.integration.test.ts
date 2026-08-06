@@ -17,7 +17,7 @@ describe("Agent service integration", () => {
               {
                 id: "test-id",
                 syncedAt: new Date("2026-08-04T11:00:00Z"),
-                agents: [{ id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "4.7", lastKeepAlive: null }],
+                agents: [{ id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "4.7", lastKeepAlive: null, groups: [] }],
                 sourceMetadata: {},
                 createdAt: new Date("2026-08-04T11:00:00Z"),
               },

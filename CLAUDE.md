@@ -1,5 +1,13 @@
 # Project Rules
 
+## Execution
+
+- Default to parallelism. When work splits into independent pieces (search, exploration, unrelated edits, per-file tasks), dispatch multiple subagents in a single message so they run concurrently — up to **10 at once**.
+- Only serialize when tasks genuinely conflict: same file write, shared mutable state, or a hard dependency where step B needs step A's result. If unsure, check for overlapping file paths; no overlap → parallelize.
+- Keep each subagent prompt scoped and self-contained: goal, exact paths/line numbers, constraints, and the requested output shape (conclusions, diffs, commands — not file dumps). Feed them the context they need; do not assume they share this session.
+- Prefer `Explore` for read-only fan-out (locate code, map a surface, answer a question), the `Plan` agent for design, and typed `general-purpose`/specialist agents for isolated edits. Verify their conclusions before building on them.
+- Parallelize even within one phase: multiple `Explore` agents over different subsystems beat one agent reading everything.
+
 ## Context Discipline
 
 - Read only files needed for current task. Start with `rg` to locate symbols, routes, and tests.

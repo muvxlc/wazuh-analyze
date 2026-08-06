@@ -3,11 +3,13 @@ import type { Pool } from "pg";
 export const applicationTables = [
   "alert_events",
   "permission_overrides",
+  "role_permission_overrides",
   "sessions",
   "invites",
   "audit_events",
   "alerts",
   "agent_snapshots",
+  "agent_tags",
   "system_settings",
   "webhook_replay_keys",
   "users",

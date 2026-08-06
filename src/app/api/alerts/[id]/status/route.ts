@@ -7,7 +7,7 @@ import { assertCsrfSafe } from "../../../../../server/auth/csrf";
 import { toErrorResponse } from "../../../../../server/http/error-response";
 import { SESSION_COOKIE } from "../../../../../server/auth/cookies";
 
-const bodySchema = z.object({ to: z.enum(["acknowledged", "resolved"]) });
+const bodySchema = z.object({ to: z.enum(["acknowledged", "resolved", "open"]) });
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
   const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   const config = loadConfig(process.env); const { db, pool } = createDatabase(config.databaseUrl);

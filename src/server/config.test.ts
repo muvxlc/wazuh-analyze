@@ -13,6 +13,7 @@ function validEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv
       WAZUH_API_URL: "https://wazuh.example.test:55000",
       WAZUH_USERNAME: "wazuh-user",
       WAZUH_PASSWORD: "wazuh-password",
+      SETTINGS_ENCRYPTION_KEY: "settings-encryption-key-at-least-32-characters",
     },
     overrides,
   );
@@ -39,6 +40,7 @@ describe("loadConfig", () => {
         caPath: null,
         allowInsecureTls: false,
       },
+      settingsEncryptionKey: "settings-encryption-key-at-least-32-characters",
     });
     expect(config.appUrl).toEqual(new URL("http://localhost:3000"));
     expect(config.wazuh.apiUrl).toEqual(
@@ -52,7 +54,7 @@ describe("loadConfig", () => {
     );
   });
 
-  it.each(["SESSION_SECRET", "WEBHOOK_HMAC_SECRET"])(
+  it.each(["SESSION_SECRET", "WEBHOOK_HMAC_SECRET", "SETTINGS_ENCRYPTION_KEY"])(
     "rejects short %s material",
     (key) => {
       expect(() => loadConfig(validEnv({ [key]: "too-short" }))).toThrow(key);

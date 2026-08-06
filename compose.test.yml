@@ -12,5 +12,6 @@ services:
       retries: 30
     ports:
       - "55432:5432"
+    # Disposable test database. Never use this service for local development data.
     tmpfs:
       - /var/lib/postgresql/data

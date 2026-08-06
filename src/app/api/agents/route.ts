@@ -6,6 +6,8 @@ import { SESSION_COOKIE } from "../../../server/auth/cookies";
 import { toErrorResponse } from "../../../server/http/error-response";
 import { createWazuhClient } from "../../../server/wazuh/adapter";
 import { getAgentSnapshot } from "../../../server/wazuh/agent-service";
+import { listAgentTagsForAgents } from "../../../server/wazuh/agent-tags";
+import { resolveEffectiveConfig } from "../../../server/settings/service";
 
 export async function GET(request: Request): Promise<Response> {
   const config = loadConfig(process.env);
@@ -15,8 +17,13 @@ export async function GET(request: Request): Promise<Response> {
     const user = await authenticateRequest(db, token);
     requirePermission(user.permissions, "agents.read");
 
-    const client = createWazuhClient(config.wazuh);
+    const effective = await resolveEffectiveConfig(db, config);
+    const client = createWazuhClient(effective.wazuh);
     const snapshot = await getAgentSnapshot(db, client);
+
+    if (user.permissions.has("agents.manage")) {
+      snapshot.agentTags = await listAgentTagsForAgents(db, snapshot.agents.map((a) => a.id));
+    }
 
     return Response.json({ data: snapshot }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

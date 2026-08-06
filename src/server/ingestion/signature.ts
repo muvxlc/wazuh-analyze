@@ -65,9 +65,9 @@ export function verifyWebhookRequest(input: {
     throw new AppError("invalid_signature_format", 401);
   }
 
-  // -- HMAC verify: raw byte body only (no timestamp in hash input) --
+  // -- HMAC verify: bind freshness timestamp to exact body bytes --
   const expectedBuf = Buffer.from(
-    computeHmacSha256Hex(secret, body),
+    computeHmacSha256Hex(secret, timestamp, body),
     "hex",
   );
   const receivedBuf = Buffer.from(hexSig, "hex");
@@ -82,13 +82,18 @@ export function verifyWebhookRequest(input: {
 }
 
 /**
- * Compute HMAC-SHA-256 hex string over raw bytes.
- * Signature input = body bytes only. Lowercase hex.
+ * Compute HMAC-SHA-256 over timestamp + separator + raw body bytes.
+ * Signature input = `${timestamp}.${body}`. Lowercase hex.
  * Exported for test assertions and cross-language fixture generation.
  */
 export function computeHmacSha256Hex(
   secret: Uint8Array,
+  timestamp: string,
   body: Uint8Array,
 ): string {
-  return createHmac("sha256", secret).update(body).digest("hex");
+  return createHmac("sha256", secret)
+    .update(timestamp, "ascii")
+    .update(".", "ascii")
+    .update(body)
+    .digest("hex");
 }

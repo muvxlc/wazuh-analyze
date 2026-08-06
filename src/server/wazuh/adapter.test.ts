@@ -19,7 +19,7 @@ describe("Wazuh adapter", () => {
         Response.json({
           data: {
             affected_items: [
-              { id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "Wazuh v4.7.2", lastKeepAlive: "2026-08-04T10:00:00Z" },
+              { id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "Wazuh v4.7.2", lastKeepAlive: "2026-08-04T10:00:00Z", group: ["core-servers", "security"] },
             ],
           },
         })
@@ -29,7 +29,7 @@ describe("Wazuh adapter", () => {
     const agents = await client.listAgents();
 
     expect(agents).toEqual([
-      expect.objectContaining({ id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "Wazuh v4.7.2" }),
+      expect.objectContaining({ id: "001", name: "agent-1", status: "active", ip: "10.0.0.1", version: "Wazuh v4.7.2", groups: ["core-servers", "security"] }),
     ]);
   });
 });

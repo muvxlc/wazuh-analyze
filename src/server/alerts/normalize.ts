@@ -27,14 +27,14 @@ export function normalizeWazuhAlert(raw: unknown): NormalizedAlertInput {
   const ruleLevel = typeof rule.level === "number" ? rule.level : 0;
   const ruleId = typeof rule.id === "string" ? rule.id : null;
   const ruleDescription = typeof rule.description === "string" ? rule.description : "";
-  const groups = Array.isArray(rule.groups)
-    ? rule.groups.filter((g): g is string => typeof g === "string")
-    : [];
 
   const agent = raw.agent;
   const agentId = isObject(agent) && typeof agent.id === "string" ? agent.id : null;
   const agentName = isObject(agent) && typeof agent.name === "string" ? agent.name : null;
   const agentIp = isObject(agent) && typeof agent.ip === "string" ? agent.ip : null;
+  const groups = isObject(agent) && Array.isArray(agent.groups)
+    ? agent.groups.filter((g): g is string => typeof g === "string")
+    : [];
 
   return {
     wazuhEventId: id,

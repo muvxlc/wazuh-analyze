@@ -3,6 +3,7 @@ import "server-only";
 import type { WazuhAgent, WazuhClient, WazuhConfig } from "./types";
 import { WazuhError } from "./errors";
 import { fetchAgents, clearTokenCache } from "./http-client";
+import { fetch as undiciFetch } from "undici";
 
 interface WazuhApiAgentItem {
   id: string;
@@ -11,6 +12,7 @@ interface WazuhApiAgentItem {
   ip?: string;
   version?: string;
   lastKeepAlive?: string;
+  group?: string[];
 }
 
 function mapAgent(item: WazuhApiAgentItem): WazuhAgent {
@@ -21,12 +23,15 @@ function mapAgent(item: WazuhApiAgentItem): WazuhAgent {
     ip: item.ip ?? "",
     version: item.version ?? "",
     lastKeepAlive: item.lastKeepAlive ?? null,
+    groups: Array.isArray(item.group)
+      ? item.group.filter((g): g is string => typeof g === "string")
+      : [],
   };
 }
 
 export function createWazuhClient(
   config: WazuhConfig,
-  fetchFn: typeof fetch = globalThis.fetch,
+  fetchFn: typeof fetch = undiciFetch as unknown as typeof fetch,
 ): WazuhClient {
   return {
     async listAgents(): Promise<WazuhAgent[]> {

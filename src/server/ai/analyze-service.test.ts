@@ -44,6 +44,28 @@ describe("analyze-service", () => {
     expect(audit.writeAuditEvent).toHaveBeenCalledWith(db, expect.objectContaining({ action: "alert.analyze", targetId: "alert-1" }));
   });
 
+  it("passes enrichment context and stores enrichmentsUsed when enrich=true", async () => {
+    vi.mocked(query.getAlertDetail).mockResolvedValue({ ...mockAlert, rawPayload: { data: { srcip: "10.0.0.1" } } } as unknown as Awaited<ReturnType<typeof query.getAlertDetail>>);
+    vi.mocked(connections.resolveAiConnection).mockResolvedValue(mockConn);
+    const mockProvider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ summary: "Enriched", confidence: 0.99 })) };
+    const mockInsert = vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: "analysis-2" }]),
+      }),
+    });
+    const db = { insert: mockInsert } as unknown as Parameters<typeof runAlertAnalysis>[0];
+    const mockContextDeps = {
+      ti: {
+        providers: [{ name: "test", lookup: async () => ({ indicator: "10.0.0.1", type: "ip" as const, abuseScore: 90, abuseCategory: "malware", pulseCount: 1, sources: ["test"] }) }],
+      },
+    };
+
+    const res = await runAlertAnalysis(db, mockActor, "alert-1", { enrich: true }, { requestId: "r2", ip: "1.1.1.1", userAgent: "ua" }, "key", { provider: mockProvider, contextDeps: mockContextDeps });
+    expect(res.verdict.confidence).toBe(0.99);
+    expect(mockInsert).toHaveBeenCalled();
+    expect(mockProvider.chat).toHaveBeenCalledWith(expect.any(String), expect.stringContaining("malware"), expect.anything());
+  });
+
   it("listAlertAnalyses returns mapped verdicts", async () => {
     vi.mocked(query.getAlertDetail).mockResolvedValue(mockAlert as unknown as Awaited<ReturnType<typeof query.getAlertDetail>>);
     const db = {

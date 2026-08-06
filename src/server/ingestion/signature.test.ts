@@ -40,7 +40,7 @@ describe("signature", () => {
     const validTimestamp = "1785664800"; // 2026-08-02T10:00:00Z (matches fixed `now`)
 
     it("accepts valid signature", () => {
-      const validSig = "sha256=4337c174eafb19079a75b03a299b45153aa325f5afd1f1edf9def04f0e6d5e97";
+      const validSig = `sha256=${computeHmacSha256Hex(secret, validTimestamp, baseBodyBuf)}`;
       const input: SignedWebhookRequest = {
         body: baseBodyBuf,
         timestamp: validTimestamp,
@@ -118,6 +118,17 @@ describe("signature", () => {
       ).toThrowError(/invalid_signature_format/);
     });
 
+    it("rejects timestamp changes without a re-signed body", () => {
+      const input: SignedWebhookRequest = {
+        body: baseBodyBuf,
+        timestamp: String(Number(validTimestamp) + 1),
+        signature: `sha256=${computeHmacSha256Hex(secret, validTimestamp, baseBodyBuf)}`,
+      };
+      expect(() =>
+        verifyWebhookRequest({ request: input, secret, now, maxAgeMs: 5_000 }),
+      ).toThrowError(/signature_mismatch/);
+    });
+
     it("rejects wrong signature via timing-safe compare", () => {
       const input: SignedWebhookRequest = {
         body: baseBodyBuf,
@@ -139,8 +150,8 @@ describe("signature", () => {
           "utf8"
         )
       );
-      const hex = computeHmacSha256Hex(secretBuf, bodyBuf);
-      expect(hex).toBe("4337c174eafb19079a75b03a299b45153aa325f5afd1f1edf9def04f0e6d5e97");
+      const hex = computeHmacSha256Hex(secretBuf, "1785664800", bodyBuf);
+      expect(hex).toBe("dcdce064deddb5196c7a895225bf17430cb785104db9d378ce06e8c05520cd48");
     });
 
     it("detects whitespace change", () => {
@@ -157,8 +168,8 @@ describe("signature", () => {
           "utf8"
         )
       );
-      expect(computeHmacSha256Hex(secretBuf, bodyBuf1)).not.toBe(
-        computeHmacSha256Hex(secretBuf, bodyBuf2)
+      expect(computeHmacSha256Hex(secretBuf, "1785664800", bodyBuf1)).not.toBe(
+        computeHmacSha256Hex(secretBuf, "1785664800", bodyBuf2)
       );
     });
   });

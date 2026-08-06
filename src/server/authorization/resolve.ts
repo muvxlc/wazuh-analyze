@@ -9,20 +9,22 @@ export interface PermissionOverride {
 export interface ResolvePermissionsInput {
   role: Role;
   overrides?: PermissionOverride[];
+  roleOverrides?: PermissionOverride[];
 }
 
 export function resolvePermissions(input: ResolvePermissionsInput): Set<string> {
-  const { role, overrides = [] } = input;
+  const { role, overrides = [], roleOverrides = [] } = input;
   const defaults = ROLE_DEFAULTS[role];
   if (defaults === undefined) {
     throw new Error(`Unknown role: ${role}`);
   }
   const result = new Set<string>(defaults);
 
-  // Track explicit overrides: deny wins if present for same permission.
+  // Merge role-level and user-level overrides.
+  // Deny always wins: if either source denies, the permission is denied.
   const denySet = new Set<string>();
   const allowSet = new Set<string>();
-  for (const override of overrides) {
+  for (const override of [...roleOverrides, ...overrides]) {
     if (override.effect === "deny") {
       denySet.add(override.permission);
     } else {

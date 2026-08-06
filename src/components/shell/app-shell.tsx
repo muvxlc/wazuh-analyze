@@ -15,14 +15,14 @@ export function AppShell({ user, children }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-canvas)]">
+    <div className="app-shell min-h-screen bg-[var(--color-canvas-soft)]">
       <TopBar user={user} onOpenMenu={() => setDrawerOpen(true)} />
-      <div className="flex flex-1">
-        <aside className="hidden w-[240px] flex-shrink-0 border-r border-[var(--color-hairline)] p-4 md:block">
+      <div className="flex min-h-[calc(100vh-64px)]">
+        <aside className="hidden w-[248px] flex-shrink-0 border-r border-[var(--color-hairline)] bg-[var(--color-canvas)] px-4 py-6 md:block">
           <Sidebar permissions={user.permissions} />
         </aside>
-        <main className="flex-1 p-6">
-          {children}
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="page-section">{children}</div>
         </main>
       </div>
       <MobileDrawer

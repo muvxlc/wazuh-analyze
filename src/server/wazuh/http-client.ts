@@ -2,17 +2,18 @@ import "server-only";
 
 import type { WazuhConfig } from "./types";
 import { WazuhError } from "./errors";
+import { Agent, fetch as undiciFetch } from "undici";
 
 /** Timeout wrapper for native fetch via AbortSignal. */
 function fetchWithTimeout(
   url: string | URL,
-  init: RequestInit,
+  init: RequestInit & { dispatcher?: Agent },
   timeoutMs: number,
   fetchFn: typeof fetch,
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetchFn(url.toString(), { ...init, signal: controller.signal }).finally(
+  return fetchFn(url.toString(), { ...init, signal: controller.signal } as RequestInit).finally(
     () => clearTimeout(timer),
   );
 }
@@ -38,7 +39,7 @@ function parseJwtExp(token: string): number | null {
 
 export async function authenticate(
   config: WazuhConfig,
-  fetchFn: typeof fetch = globalThis.fetch,
+  fetchFn: typeof fetch = undiciFetch as unknown as typeof fetch,
 ): Promise<string> {
   const now = Date.now();
   if (tokenCache && tokenCache.expiresAt > now) {
@@ -87,31 +88,52 @@ export function clearTokenCache(): void {
 function buildTlsOptions(
   config: WazuhConfig,
 ): Record<string, unknown> {
-  // Node.js native fetch doesn't support custom CA or rejectUnauthorized directly.
-  // For environments using undici (Node 18+), dispatcher options handle TLS.
-  // ponytail: TLS customization ceiling — upgrade to undici Agent when CA/insecure needed in prod.
   if (config.allowInsecureTls) {
-    // In test/dev, set NODE_TLS_REJECT_UNAUTHORIZED=0 at process level.
-    // This is validated to be blocked in production by config.ts.
-    return {};
+    return { dispatcher: new Agent({ connect: { rejectUnauthorized: false } }) };
+  }
+  if (config.caPath) {
+    return { dispatcher: new Agent({ connect: { ca: config.caPath } }) };
   }
   return {};
 }
 
-export async function fetchAgents(
+export interface WazuhGetOptions {
+  /** Per-request timeout (default 10s). */
+  timeoutMs?: number;
+  /** Query-string params appended to `path`. */
+  query?: Record<string, string | number>;
+  /** Injectable fetch (mainly for tests). */
+  fetchFn?: typeof fetch;
+}
+
+/**
+ * Generic authenticated GET against the Wazuh REST API. Handles token
+ * acquisition, TLS options, timeout, and 401 cache invalidation. Fetchers
+ * (agents, inventory) compose this instead of reimplementing the round-trip.
+ * ponytail: add POST/PUT + JSON body when Phase 5 active-response needs it.
+ */
+export async function wazuhGet(
   config: WazuhConfig,
-  fetchFn: typeof fetch = globalThis.fetch,
+  path: string,
+  options: WazuhGetOptions = {},
 ): Promise<unknown> {
+  const fetchFn = options.fetchFn ?? (undiciFetch as unknown as typeof fetch);
   const token = await authenticate(config, fetchFn);
-  const agentsUrl = new URL("/agents?limit=500&offset=0", config.apiUrl);
+  const url = new URL(path, config.apiUrl);
+  if (options.query) {
+    for (const [key, value] of Object.entries(options.query)) {
+      url.searchParams.set(key, String(value));
+    }
+  }
 
   const res = await fetchWithTimeout(
-    agentsUrl,
+    url,
     {
       method: "GET",
       headers: { authorization: `Bearer ${token}` },
+      ...buildTlsOptions(config),
     },
-    10_000,
+    options.timeoutMs ?? 10_000,
     fetchFn,
   );
 
@@ -121,9 +143,20 @@ export async function fetchAgents(
     throw new WazuhError(
       "wazuh_api_error",
       res.status,
-      `Wazuh agents API returned ${res.status}`,
+      `Wazuh API ${path} returned ${res.status}`,
     );
   }
 
   return res.json();
+}
+
+export async function fetchAgents(
+  config: WazuhConfig,
+  fetchFn: typeof fetch = undiciFetch as unknown as typeof fetch,
+): Promise<unknown> {
+  return wazuhGet(config, "/agents", {
+    query: { limit: 500, offset: 0 },
+    timeoutMs: 10_000,
+    fetchFn,
+  });
 }

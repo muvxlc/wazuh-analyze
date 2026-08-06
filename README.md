@@ -41,4 +41,5 @@ Open `http://localhost:3000`.
 - [Deployment and Hosting](docs/deployment.md)
 - [Wazuh Integration](docs/wazuh-integration.md)
 - [Operations, Backup, and Rollback](docs/operations.md)
+- [AI Connections](docs/ai-connections.md)
 - [Migration and Parity Checklist](docs/migration-parity-checklist.md)

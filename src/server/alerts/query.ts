@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import type { Database } from "../db/types";
 import * as schema from "../db/schema";
 import type { ActorContext } from "../authorization/permissions";
@@ -74,8 +74,10 @@ export async function listAlerts(
     ? encodeCursor(sliced[sliced.length - 1].ingestedAt, sliced[sliced.length - 1].id)
     : null;
 
+  const tagsByAgent = await fetchAgentTags(db, sliced.map((row) => row.agentId));
+
   return {
-    items: sliced.map(mapRow),
+    items: sliced.map((row) => mapRow(row, tagsByAgent)),
     cursor: nextCursor,
     hasNext: hasMore,
   };
@@ -113,6 +115,21 @@ function buildWhereClause(query: AlertListQuery): import("drizzle-orm").SQL | un
   if (query.agentId) {
     clauses.push(eq(schema.alerts.agentId, query.agentId));
   }
+  if (query.agentIds?.length) {
+    clauses.push(inArray(schema.alerts.agentId, query.agentIds));
+  }
+  if (query.tags?.length) {
+    clauses.push(
+      sql`EXISTS (
+        SELECT 1 FROM ${schema.agentTags}
+        WHERE ${schema.agentTags.agentId} = ${schema.alerts.agentId}
+          AND ${schema.agentTags.tag} IN (${sql.join(query.tags.map((tag) => sql`${tag}`), sql`, `)})
+      )`,
+    );
+  }
+  if (query.groups?.length) {
+    clauses.push(sql`${schema.alerts.groups} && ARRAY[${sql.join(query.groups.map((group) => sql`${group}`), sql`, `)}]::text[]`);
+  }
   if (query.ruleId) {
     clauses.push(eq(schema.alerts.ruleId, query.ruleId));
   }
@@ -138,27 +155,30 @@ function buildWhereClause(query: AlertListQuery): import("drizzle-orm").SQL | un
   return and(...clauses) as import("drizzle-orm").SQL<unknown>;
 }
 
-function mapRow(row: {
-  id: string;
-  wazuhEventId: string | null;
-  fingerprint: string;
-  wazuhTimestamp: Date;
-  ingestedAt: Date;
-  agentId: string | null;
-  agentName: string | null;
-  agentIp: string | null;
-  ruleId: string | null;
-  ruleDescription: string;
-  level: number;
-  groups: string[];
-  compliance: unknown;
-  status: AlertStatus;
-  acknowledgedAt: Date | null;
-  acknowledgedByUserId: string | null;
-  resolvedAt: Date | null;
-  resolvedByUserId: string | null;
-  rawPayload: unknown;
-}): AlertRecord {
+function mapRow(
+  row: {
+    id: string;
+    wazuhEventId: string | null;
+    fingerprint: string;
+    wazuhTimestamp: Date;
+    ingestedAt: Date;
+    agentId: string | null;
+    agentName: string | null;
+    agentIp: string | null;
+    ruleId: string | null;
+    ruleDescription: string;
+    level: number;
+    groups: string[];
+    compliance: unknown;
+    status: AlertStatus;
+    acknowledgedAt: Date | null;
+    acknowledgedByUserId: string | null;
+    resolvedAt: Date | null;
+    resolvedByUserId: string | null;
+    rawPayload: unknown;
+  },
+  tagsByAgent?: Map<string, string[]>,
+): AlertRecord {
   return {
     id: row.id,
     wazuhEventId: row.wazuhEventId,
@@ -172,6 +192,7 @@ function mapRow(row: {
     ruleDescription: row.ruleDescription,
     level: row.level,
     groups: row.groups,
+    tags: row.agentId ? (tagsByAgent?.get(row.agentId) ?? []) : [],
     compliance: (row.compliance as Record<string, unknown>) ?? {},
     status: row.status,
     acknowledgedAt: row.acknowledgedAt,
@@ -182,6 +203,25 @@ function mapRow(row: {
   };
 }
 
+async function fetchAgentTags(
+  db: Database,
+  agentIds: (string | null | undefined)[],
+): Promise<Map<string, string[]>> {
+  const validIds = [...new Set(agentIds.filter((id): id is string => id != null))];
+  if (validIds.length === 0) return new Map();
+  const rows = await db
+    .select({ agentId: schema.agentTags.agentId, tag: schema.agentTags.tag })
+    .from(schema.agentTags)
+    .where(inArray(schema.agentTags.agentId, validIds));
+  const map = new Map<string, string[]>();
+  for (const row of rows) {
+    const tags = map.get(row.agentId);
+    if (tags) tags.push(row.tag);
+    else map.set(row.agentId, [row.tag]);
+  }
+  return map;
+}
+
 export async function getAlertDetail(
   db: Database,
   actor: ActorContext,
@@ -190,10 +230,13 @@ export async function getAlertDetail(
   requirePermission(actor.permissions, "alerts.details");
   const [alert] = await db.select().from(schema.alerts).where(eq(schema.alerts.id, alertId)).limit(1);
   if (!alert) throw new Error(`alert not found: ${alertId}`);
-  const timeline = await db.select().from(schema.alertEvents)
-    .where(eq(schema.alertEvents.alertId, alertId)).orderBy(asc(schema.alertEvents.occurredAt));
+  const [timeline, tagsByAgent] = await Promise.all([
+    db.select().from(schema.alertEvents)
+      .where(eq(schema.alertEvents.alertId, alertId)).orderBy(asc(schema.alertEvents.occurredAt)),
+    fetchAgentTags(db, [alert.agentId]),
+  ]);
   return {
-    ...mapRow(alert),
+    ...mapRow(alert, tagsByAgent),
     timeline: timeline.map((event) => ({
       id: event.id,
       fromStatus: event.fromStatus as AlertStatus | null,

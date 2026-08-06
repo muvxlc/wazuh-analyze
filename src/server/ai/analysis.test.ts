@@ -57,4 +57,16 @@ describe("AI analysis contract", () => {
       aiVerdictSchema.safeParse({ summary: "s", confidence: 1.5 }).success,
     ).toBe(false);
   });
+
+  it("appends redacted enrichment context to prompt when provided", () => {
+    const ctx = {
+      enrichmentsUsed: ["processes"],
+      iocLookups: [],
+      sections: { processes: [{ name: "bash", apiKey: "secret_value" }] },
+    };
+    const prompt = buildAlertAnalysisPrompt(alert, ctx);
+    expect(prompt).toContain("enrichment");
+    expect(prompt).toContain("bash");
+    expect(prompt).not.toContain("secret_value");
+  });
 });

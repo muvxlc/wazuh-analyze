@@ -82,6 +82,7 @@ export function mapAlertRow(row: (typeof schema.alerts.$inferSelect)): AlertReco
     ruleDescription: row.ruleDescription,
     level: row.level,
     groups: row.groups,
+    tags: [],
     compliance: row.compliance as Record<string, unknown>,
     status: row.status as AlertStatus,
     acknowledgedAt: row.acknowledgedAt,

@@ -58,11 +58,13 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/dashboard.example.com/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:3456;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 }
@@ -70,5 +72,5 @@ server {
 
 ## 5. Wazuh Custom Webhook integration deployment
 
-Deploy `on-wazuh-server/custom-webhook` and `on-wazuh-server/custom-webhook.py` to `/var/ossec/integrations/` on your Wazuh Manager node.
-Set appropriate filesystem execution permissions and populate environment configurations according to `custom-webhook.env.example`.
+Deploy `on-wazuh-server/custom-webhook` and `on-wazuh-server/custom-webhook.py` to `/var/ossec/integrations/` on your Wazuh Manager node as `custom-analyze` and `custom-analyze.py`.
+Set appropriate filesystem execution permissions and populate `/var/ossec/integrations/custom-analyze.env` according to `on-wazuh-server/custom-webhook.env.example`.

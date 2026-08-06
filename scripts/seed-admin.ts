@@ -1,16 +1,16 @@
 import "dotenv/config";
-import { loadConfig } from "../src/server/config";
 import { createDatabase } from "../src/server/db/client";
 import { hashPassword } from "../src/server/auth/password";
 import * as schema from "../src/server/db/schema";
 import { eq } from "drizzle-orm";
 
 async function main() {
-  const config = loadConfig(process.env);
-  const { db, pool } = createDatabase(config.databaseUrl);
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("Missing DATABASE_URL in environment");
+  const { db, pool } = createDatabase(url);
 
   const email = process.argv[2] || "admin@wazuh-dashboard.local";
-  const password = process.argv[3] || "dashboard";
+  const password = process.argv[3] || "SuperAdmin123!";
 
   try {
     const existing = await db.query.users.findFirst({
@@ -34,7 +34,9 @@ async function main() {
       isActive: true,
     });
 
-    console.log(`Created super_admin user: ${email}`);
+    console.log(`Created super_admin user successfully:`);
+    console.log(`Email: ${email}`);
+    console.log(`PLEASE LOG IN AND CHANGE YOUR PASSWORD IMMEDIATELY.`);
   } finally {
     await pool.end();
   }

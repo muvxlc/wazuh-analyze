@@ -6,5 +6,5 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const refresh = () => { void fetch("/api/users").then((r) => r.json()).then((b) => { if (b.data?.users) setUsers(b.data.users); }); };
   useEffect(() => refresh(), []);
-  return <section><h1>Users</h1><InviteDialog /> <UserTable users={users} onRefresh={refresh} /></section>;
+  return <section className="page-section"><h1>Users</h1><InviteDialog /> <UserTable users={users} onRefresh={refresh} /></section>;
 }

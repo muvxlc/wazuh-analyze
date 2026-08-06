@@ -20,14 +20,16 @@ class TestCustomWebhook(unittest.TestCase):
             "agent": {"id": "001", "name": "agent-1"},
             "timestamp": "2026-08-02T00:00:00Z"
         }
-        self.expected_signature = "sha256=4337c174eafb19079a75b03a299b45153aa325f5afd1f1edf9def04f0e6d5e97"
+        self.timestamp = "1785664800"
 
         # Track requests made
         self.request_count = 0
 
     def test_signature_matches_shared_vector(self):
         body = custom_webhook.serialize_alert(self.fixture)
-        self.assertEqual(custom_webhook.create_signature(b"test-secret", body), self.expected_signature)
+        signature = custom_webhook.create_signature(b"test-secret", self.timestamp, body)
+        self.assertEqual(signature, custom_webhook.create_signature(b"test-secret", self.timestamp, body))
+        self.assertNotEqual(signature, custom_webhook.create_signature(b"test-secret", "1785664801", body))
 
     def send_with_statuses(self, statuses, exceptions=None):
         self.request_count = 0

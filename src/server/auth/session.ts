@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 import * as schema from "../db/schema";
 import type { Database, DatabaseTransaction } from "../db/types";
@@ -50,6 +50,17 @@ export async function revokeSessionsByUserId(db: Database | DatabaseTransaction,
     eq(schema.sessions.userId, userId),
     isNull(schema.sessions.revokedAt),
   ));
+}
+
+export async function revokeSessionsByRoleId(db: Database | DatabaseTransaction, role: string, now = new Date()): Promise<void> {
+  await db.execute(sql`
+    UPDATE ${schema.sessions}
+    SET revoked_at = ${now}
+    WHERE ${schema.sessions.userId} IN (
+      SELECT ${schema.users.id} FROM ${schema.users} WHERE ${schema.users.role} = ${role}
+    )
+    AND ${schema.sessions.revokedAt} IS NULL
+  `);
 }
 
 export async function rotateSession(

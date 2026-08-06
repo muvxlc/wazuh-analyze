@@ -43,41 +43,41 @@ export default function InvitePage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-[22px] font-medium leading-[1.2]">{t("title")}</h1>
+      <h1>{t("title")}</h1>
       
       {error && (
-        <div className="mb-4 rounded-[6px] bg-[#ff2201] p-[8px] text-[13px] text-white">
+        <div className="status-error mb-4">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
+      <form onSubmit={handleSubmit} className="form-stack">
+        <div className="form-field">
           <label htmlFor="displayName" className="text-[13px] font-medium">{t("displayName")}</label>
           <input
             id="displayName"
             name="displayName"
             type="text"
             required
-            className="rounded-[6px] border border-[var(--color-hairline)] px-[12px] py-[8px] text-[16px] outline-none focus:border-[var(--color-ink)]"
+            className="auth-input"
           />
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="form-field">
           <label htmlFor="password" className="text-[13px] font-medium">{t("password")}</label>
           <input
             id="password"
             name="password"
             type="password"
             required
-            className="rounded-[6px] border border-[var(--color-hairline)] px-[12px] py-[8px] text-[16px] outline-none focus:border-[var(--color-ink)]"
+            className="auth-input"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 rounded-[6px] bg-[var(--color-primary)] px-[16px] py-[8px] text-[14px] font-medium text-[var(--color-ink)] disabled:opacity-50"
+          className="mt-2"
         >
           {t("submit")}
         </button>

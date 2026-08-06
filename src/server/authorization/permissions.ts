@@ -3,6 +3,9 @@ export type Locale = "en" | "th";
 export type Permission = string;
 export type OverrideEffect = "allow" | "deny";
 
+export const ROLES = ["super_admin", "admin", "user"] as const;
+export type RoleValue = (typeof ROLES)[number];
+
 export const PERMISSIONS = {
   dashboardRead: "dashboard.read",
   alertsRead: "alerts.read",
@@ -19,6 +22,7 @@ export const PERMISSIONS = {
   usersManage: "users.manage",
   invitesManage: "invites.manage",
   rolesRead: "roles.read",
+  rolesManage: "roles.manage",
   sessionsRevoke: "sessions.revoke",
   auditRead: "audit.read",
   settingsManage: "settings.manage",
@@ -28,6 +32,7 @@ export const PERMISSIONS = {
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export interface ActorContext {
   userId: string;

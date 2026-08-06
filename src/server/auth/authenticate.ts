@@ -28,15 +28,20 @@ export async function authenticateRequest(db: Database, token: string | null): P
     eq(schema.users.isActive, true),
   )).limit(1);
   if (!user) throw new AppError("unauthenticated", 401);
-  const overrides = await db.select({ permission: schema.permissionOverrides.permission, effect: schema.permissionOverrides.effect })
+
+  // Fetch both user-level and role-level overrides
+  const userOverrides = await db.select({ permission: schema.permissionOverrides.permission, effect: schema.permissionOverrides.effect })
     .from(schema.permissionOverrides).where(eq(schema.permissionOverrides.userId, user.id));
+  const roleOverrides = await db.select({ permission: schema.rolePermissionOverrides.permission, effect: schema.rolePermissionOverrides.effect })
+    .from(schema.rolePermissionOverrides).where(eq(schema.rolePermissionOverrides.role, user.role));
+
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     role: user.role,
     locale: user.locale,
-    permissions: new Set(resolvePermissions({ role: user.role, overrides })),
+    permissions: new Set(resolvePermissions({ role: user.role, overrides: userOverrides, roleOverrides })),
     sessionId: session.id,
   };
 }

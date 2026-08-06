@@ -8,6 +8,7 @@ process.env.WEBHOOK_HMAC_SECRET = "b".repeat(32);
 process.env.WAZUH_API_URL = "https://wazuh.test:55000";
 process.env.WAZUH_USERNAME = "test-user";
 process.env.WAZUH_PASSWORD = "test-pass";
+process.env.SETTINGS_ENCRYPTION_KEY = "k".repeat(32);
 
 import { GET as getLive } from "./live/route";
 

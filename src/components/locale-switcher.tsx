@@ -30,7 +30,7 @@ export function LocaleSwitcher({ currentLocale }: { currentLocale?: string }) {
         type="button"
         onClick={() => handleLocaleChange("en")}
         disabled={isPending}
-        className={`hover:underline ${currentLocale === "en" ? "font-bold underline" : ""}`}
+        className={`link-button text-[13px] ${currentLocale === "en" ? "font-bold underline" : ""}`}
       >
         {t("en")}
       </button>
@@ -39,7 +39,7 @@ export function LocaleSwitcher({ currentLocale }: { currentLocale?: string }) {
         type="button"
         onClick={() => handleLocaleChange("th")}
         disabled={isPending}
-        className={`hover:underline ${currentLocale === "th" ? "font-bold underline" : ""}`}
+        className={`link-button text-[13px] ${currentLocale === "th" ? "font-bold underline" : ""}`}
       >
         {t("th")}
       </button>

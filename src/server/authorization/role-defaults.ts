@@ -17,6 +17,7 @@ export const ROLE_DEFAULTS: Readonly<Record<Role, readonly Permission[]>> = {
     "users.manage",
     "invites.manage",
     "roles.read",
+    "roles.manage",
     "sessions.revoke",
     "audit.read",
     "settings.manage",

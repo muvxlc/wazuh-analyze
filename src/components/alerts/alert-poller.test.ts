@@ -15,6 +15,7 @@ const mockAlert = {
   ruleDescription: "ssh login",
   level: 5,
   groups: ["syslog"],
+  tags: [],
   compliance: {},
   status: "open" as const,
   acknowledgedAt: null,

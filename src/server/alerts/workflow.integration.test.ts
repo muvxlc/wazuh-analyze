@@ -134,4 +134,84 @@ describe("transitionAlert integration", () => {
       transitionAlert(db, actor, { alertId: "00000000-0000-0000-0000-000000000000", to: "acknowledged" }, metadata),
     ).rejects.toThrow();
   });
+
+  it("reopens alert from acknowledged back to open, clearing stale timestamps and by-IDs", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-reopen-1", ip: "127.0.0.1", userAgent: "test" };
+
+    await transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata);
+    const reopened = await transitionAlert(db, actor, { alertId, to: "open" }, metadata);
+
+    expect(reopened.status).toBe("open");
+    expect(reopened.acknowledgedAt).toBeNull();
+    expect(reopened.acknowledgedByUserId).toBeNull();
+    expect(reopened.resolvedAt).toBeNull();
+    expect(reopened.resolvedByUserId).toBeNull();
+  });
+
+  it("reopens alert from resolved back to open", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-reopen-2", ip: "127.0.0.1", userAgent: "test" };
+
+    await transitionAlert(db, actor, { alertId, to: "resolved" }, metadata);
+    const reopened = await transitionAlert(db, actor, { alertId, to: "open" }, metadata);
+    expect(reopened.status).toBe("open");
+  });
+
+  it("writes alert.reopen audit action on reopen", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-reopen-audit", ip: "127.0.0.1", userAgent: "test" };
+
+    await transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata);
+    await transitionAlert(db, actor, { alertId, to: "open" }, metadata);
+
+    const auditEvents = await db
+      .select()
+      .from(schema.auditEvents)
+      .where(eq(schema.auditEvents.targetId, alertId));
+    const reopenAudit = auditEvents.find((e) => e.action === "alert.reopen");
+    expect(reopenAudit).toBeDefined();
+    expect(reopenAudit!.detail).toMatchObject({ fromStatus: "acknowledged", toStatus: "open" });
+  });
+
+  it("is idempotent: reopening an already-open alert produces no new event", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-reopen-idem", ip: "127.0.0.1", userAgent: "test" };
+
+    await transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata);
+    await transitionAlert(db, actor, { alertId, to: "open" }, metadata);
+    await transitionAlert(db, actor, { alertId, to: "open" }, metadata);
+
+    const events = await db
+      .select()
+      .from(schema.alertEvents)
+      .where(eq(schema.alertEvents.alertId, alertId));
+    const reopenEvents = events.filter((e) => e.toStatus === "open");
+    expect(reopenEvents).toHaveLength(1);
+  });
+
+  it("rejects invalid transition: acknowledged -> acknowledged is idempotent, not invalid", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-valid", ip: "127.0.0.1", userAgent: "test" };
+
+    // acknowledged -> acknowledged is a self-transition (idempotent), allowed.
+    await transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata);
+    await expect(transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata)).resolves.toBeDefined();
+  });
+
+  it("rejects invalid transition: resolved -> acknowledged is not allowed", async () => {
+    const alertId = await seedAlert();
+    const actor = makeActor(actorId, "admin");
+    const metadata = { requestId: "req-invalid", ip: "127.0.0.1", userAgent: "test" };
+
+    await transitionAlert(db, actor, { alertId, to: "resolved" }, metadata);
+    await expect(
+      transitionAlert(db, actor, { alertId, to: "acknowledged" }, metadata),
+    ).rejects.toThrow(/cannot transition alert from resolved to acknowledged/);
+  });
 });

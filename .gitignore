@@ -43,5 +43,12 @@ alerts-archive.json
 # Local Git worktrees
 .worktrees/
 
+# Local test / inspect scripts (MJS)
+test-*.mjs
+inspect-*.mjs
+
+# OpenCode artifacts
+.opencode/
+
 # Certificate file
 

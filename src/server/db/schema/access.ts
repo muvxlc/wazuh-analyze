@@ -82,3 +82,25 @@ export const permissionOverrides = pgTable(
     index("permission_overrides_user_id_idx").on(table.userId),
   ],
 );
+
+export const rolePermissionOverrides = pgTable(
+  "role_permission_overrides",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    role: roleEnum("role").notNull(),
+    permission: text("permission").notNull(),
+    effect: overrideEffectEnum("effect").notNull(),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("role_permission_overrides_role_permission_unique").on(
+      table.role,
+      table.permission,
+    ),
+    index("role_permission_overrides_role_idx").on(table.role),
+  ],
+);

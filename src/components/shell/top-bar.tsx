@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { LogOut, Menu } from "lucide-react";
 import { LocaleSwitcher } from "../locale-switcher";
 import type { AuthenticatedUser } from "../../server/auth/authenticate";
 
@@ -25,27 +26,30 @@ export function TopBar({ user, onOpenMenu }: TopBarProps) {
   };
 
   return (
-    <header className="flex h-[64px] items-center justify-between border-b border-[var(--color-hairline)] px-6">
-      <div className="flex items-center gap-4">
+    <header className="top-bar sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--color-hairline)] bg-[var(--color-canvas)] px-4 sm:px-6">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           aria-label={tShell("menu")}
+          title={tShell("menu")}
           onClick={onOpenMenu}
-          className="rounded-[6px] border border-[var(--color-hairline)] px-2 py-1 text-[14px] md:hidden"
+          className="outline-button inline-flex h-10 w-10 items-center justify-center p-0 md:hidden"
         >
-          {tShell("menu")}
+          <Menu aria-hidden="true" size={20} />
         </button>
-        <span className="text-[18px] font-medium">Wazuh</span>
+        <span className="text-lg font-semibold tracking-tight">Wazuh</span>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-5">
         <LocaleSwitcher currentLocale={user.locale} />
-        <span className="text-[14px] text-[var(--color-ink-muted)]">{user.displayName}</span>
+        <span className="hidden text-sm text-[var(--color-ink-muted)] sm:inline">{user.displayName}</span>
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-[6px] bg-[var(--color-canvas-soft)] px-[12px] py-[6px] text-[13px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-hairline)]"
+          title={t("logout")}
+          className="outline-button inline-flex h-10 items-center gap-2 px-3 text-sm"
         >
-          {t("logout")}
+          <LogOut aria-hidden="true" size={16} />
+          <span className="hidden sm:inline">{t("logout")}</span>
         </button>
       </div>
     </header>

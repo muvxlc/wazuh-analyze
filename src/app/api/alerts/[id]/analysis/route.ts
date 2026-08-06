@@ -40,7 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const body = request.body ? bodySchema.parse(await request.json().catch(() => ({}))) : {};
     const actor = { userId: user.id, role: user.role, permissions: new Set(user.permissions) };
     const metadata = { requestId, ip: request.headers.get("x-forwarded-for"), userAgent: request.headers.get("user-agent") };
-    const data = await runAlertAnalysis(db, actor, id, body, metadata, config.settingsEncryptionKey);
+    const data = await runAlertAnalysis(db, actor, id, body, metadata, config);
     return Response.json({ data }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
     return toErrorResponse(error, requestId);

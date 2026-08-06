@@ -5,11 +5,21 @@ import { authenticateRequest } from "../../../server/auth/authenticate";
 import { listAlerts } from "../../../server/alerts/query";
 import { toErrorResponse } from "../../../server/http/error-response";
 import { SESSION_COOKIE } from "../../../server/auth/cookies";
+import { createWazuhClient } from "../../../server/wazuh/adapter";
+import {
+  indexAgentGroups,
+  resolveAgentIdsForGroups,
+  mergeAgentGroups,
+} from "../../../server/wazuh/agent-groups";
+import { resolveEffectiveConfig } from "../../../server/settings/service";
 
 const querySchema = z.object({
-  search: z.string().optional(), agentId: z.string().optional(), ruleId: z.string().optional(),
+  search: z.string().optional(), agentId: z.string().optional(), agentIds: z.string().optional().transform((value) => value ? value.split(",").map((id) => id.trim()).filter(Boolean) : undefined), ruleId: z.string().optional(),
   levelMin: z.coerce.number().int().optional(), levelMax: z.coerce.number().int().optional(),
-  status: z.enum(["open", "acknowledged", "resolved"]).optional(), cursor: z.string().optional(),
+  status: z.enum(["open", "acknowledged", "resolved"]).optional(),
+  groups: z.string().optional().transform((value) => value ? value.split(",").map((group) => group.trim()).filter(Boolean) : undefined),
+  tags: z.string().optional().transform((value) => value ? value.split(",").map((tag) => tag.trim()).filter(Boolean) : undefined),
+  cursor: z.string().optional(),
   limit: z.coerce.number().int().optional(),
 });
 
@@ -20,7 +30,27 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const user = await authenticateRequest(db, request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1] ?? null);
     const parsed = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    const data = await listAlerts(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, parsed);
+
+    const effective = await resolveEffectiveConfig(db, config);
+    const client = createWazuhClient(effective.wazuh);
+    const agents = await client.listAgents().catch(() => []);
+    const index = indexAgentGroups(agents);
+
+    let agentIds = parsed.agentIds;
+    if (parsed.groups?.length && !agentIds) {
+      agentIds = resolveAgentIdsForGroups(index, parsed.groups);
+    }
+
+    const data = await listAlerts(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, {
+      ...parsed,
+      agentIds,
+      groups: agentIds ? undefined : parsed.groups,
+    });
+
+    if (index.byAgentId.size > 0) {
+      data.items = mergeAgentGroups(data.items, index);
+    }
+
     return Response.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return toErrorResponse(error, requestId);

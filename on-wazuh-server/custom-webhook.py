@@ -18,9 +18,10 @@ def serialize_alert(alert: dict) -> bytes:
     """Serialize alert cleanly without whitespaces to match TS backend expectations"""
     return json.dumps(alert, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
-def create_signature(secret: bytes, body: bytes) -> str:
-    """Compute HMAC-SHA256 signature mirroring TS signature protocol"""
-    return "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+def create_signature(secret: bytes, timestamp: str, body: bytes) -> str:
+    """Compute HMAC-SHA256 over timestamp and exact body bytes."""
+    canonical = timestamp.encode("ascii") + b"." + body
+    return "sha256=" + hmac.new(secret, canonical, hashlib.sha256).hexdigest()
 
 def retry_delay(response: requests.Response, attempt: int) -> float:
     """Compute retry delay based on Retry-After header or exponential backoff"""
@@ -37,7 +38,7 @@ def send_alert(endpoint: str, secret: bytes, body: bytes) -> int:
     headers = {
         "content-type": "application/json",
         "x-wazuh-timestamp": timestamp,
-        "x-wazuh-signature": create_signature(secret, body),
+        "x-wazuh-signature": create_signature(secret, timestamp, body),
     }
 
     for attempt in range(MAX_ATTEMPTS):

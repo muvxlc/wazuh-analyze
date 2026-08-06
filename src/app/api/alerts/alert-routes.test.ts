@@ -7,6 +7,7 @@ process.env.WEBHOOK_HMAC_SECRET = "a".repeat(32);
 process.env.WAZUH_API_URL = "https://wazuh.example.com";
 process.env.WAZUH_USERNAME = "test";
 process.env.WAZUH_PASSWORD = "test";
+process.env.SETTINGS_ENCRYPTION_KEY = "k".repeat(32);
 
 import { GET as getAlerts } from "./route";
 

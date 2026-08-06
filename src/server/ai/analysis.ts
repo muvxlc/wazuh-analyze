@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import type { AlertRecord } from "../alerts/types";
 import type { ChatProvider } from "./connections";
+import type { AnalysisContext } from "../enrichment/context-builder";
 
 // MITRE ATT&CK technique ids look like `T1059` or `T1059.001`. Validate the
 // format only — the value is still untrusted LLM output, never executed.
@@ -74,16 +75,32 @@ const SYSTEM_PROMPT =
 
 const MAX_PROMPT_BYTES = 32_000;
 
-export function buildAlertAnalysisPrompt(alert: Pick<AlertRecord, "agentId" | "agentName" | "groups" | "ruleId" | "ruleDescription" | "level" | "rawPayload">): string {
-  const payload = JSON.stringify(alert.rawPayload, (key, value) =>
-    /password|secret|token|authorization|cookie|api.?key/i.test(key) ? undefined : value,
-  ).slice(0, MAX_PROMPT_BYTES);
+export function buildAlertAnalysisPrompt(
+  alert: Pick<AlertRecord, "agentId" | "agentName" | "groups" | "ruleId" | "ruleDescription" | "level" | "rawPayload">,
+  context?: AnalysisContext,
+): string {
+  const redact = (key: string, value: unknown) =>
+    /password|secret|token|authorization|cookie|api.?key/i.test(key) ? undefined : value;
+
+  const payload = JSON.stringify(alert.rawPayload, redact).slice(0, MAX_PROMPT_BYTES);
+  const enrichment =
+    context && (Object.keys(context.sections).length > 0 || context.iocLookups.length > 0)
+      ? JSON.stringify(
+          {
+            ...context.sections,
+            iocLookups: context.iocLookups.length > 0 ? context.iocLookups : undefined,
+          },
+          redact,
+        ).slice(0, 12_000)
+      : undefined;
+
   return [
     SYSTEM_PROMPT,
     JSON.stringify({
       agent: { id: alert.agentId, name: alert.agentName, groups: alert.groups },
       rule: { id: alert.ruleId, description: alert.ruleDescription, level: alert.level },
       rawPayload: payload,
+      enrichment,
     }),
   ].join("\n");
 }
@@ -92,11 +109,12 @@ export async function analyzeAlert(
   provider: ChatProvider,
   alert: Pick<AlertRecord, "agentId" | "agentName" | "groups" | "ruleId" | "ruleDescription" | "level" | "rawPayload">,
   timeoutMs = 10_000,
+  context?: AnalysisContext,
 ): Promise<AiVerdict> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const result = await provider.chat(SYSTEM_PROMPT, buildAlertAnalysisPrompt(alert), controller.signal);
+    const result = await provider.chat(SYSTEM_PROMPT, buildAlertAnalysisPrompt(alert, context), controller.signal);
     // ponytail: regex strips basic markdown code blocks; add AST JSON extractor when providers return conversational commentary around JSON.
     const parsed = JSON.parse(result.replace(/^```(?:json)?\s*|\s*```$/gi, ""));
     return aiVerdictSchema.parse(parsed);

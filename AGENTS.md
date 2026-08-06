@@ -36,6 +36,17 @@ Never mark a task complete before implementation verification and required revie
 5. Resume first task not marked complete in ledger.
 6. Keep legacy removal Task 12 blocked until parity evidence and explicit user approval.
 
+## Wazuh Resync Rules
+
+- Production live trigger remains `custom-analyze` -> `custom-analyze.py` -> `POST /api/integrations/wazuh/alerts`.
+- Historical recovery uses `on-wazuh-server/resync-archive.py` on Wazuh Manager, reading configured JSONL archive files (`/var/ossec/logs/archives/` or `/var/ossec/archives/`). Do not add dashboard startup resync or direct DB writes.
+- Run with Wazuh bundled Python and variables from protected `custom-analyze.env`:
+  `sudo -u wazuh env $(sudo cat /var/ossec/integrations/custom-analyze.env | grep -v '^#' | xargs) /var/ossec/framework/python/bin/python3 /var/ossec/integrations/resync-archive.py --dry-run /path/to/alerts.json`
+- Resync must sign each request with fresh current timestamp/HMAC. `200`/`202` means sent; `409` means duplicate and successful completion. Retry network, timeout, `429`, and `5xx`; preserve source archive on all failures.
+- `--from-line N` resumes a known JSONL interruption. `--dry-run` validates/counts without sending. Reruns must be safe through server unique deduplication.
+- Replaying an alert already `resolved` must never reopen, overwrite workflow fields, or add a human status transition. New Wazuh event IDs/timestamps create new alert rows; occurrence grouping requires a separate model.
+- Never point tests at dev/production DB. `compose.test.yml` is disposable; persistent local development uses `compose.dev.yml` and `wazuh_dashboard_dev`.
+
 ## Subagent Model
 
 OpenCode global config maps all available subagents to `9router/agnes/agnes-2.5-flash`. Config changes require quitting and restarting OpenCode before dispatching more subagents.

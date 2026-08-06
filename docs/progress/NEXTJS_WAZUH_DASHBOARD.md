@@ -1,10 +1,10 @@
 ---
 title: Next.js Wazuh Dashboard Progress
 project: wazuh-alert-webhook
-status: in-progress
-updated: 2026-08-03
+status: task-12-complete-ui-styling-uncommitted
+updated: 2026-08-04
 branch: feature/nextjs-wazuh-dashboard
-head: 5b6338b
+head: a156136
 tags:
   - wazuh
   - nextjs
@@ -198,6 +198,7 @@ Deferred minor items (security APPROVED, retained):
 
 Worktree status: M package-lock.json, ?? .opencode/ — outside reviewed source changes unless already user changes.
 Task 12 remains blocked by parity evidence and explicit approval.
+Roadmap Phase 1 dispatch 2026-08-04: base HEAD a156136; severity mapper, open severity summary buckets, alert badges/group display, low-severity toggle, and accessible detail drawer. Verification/review pending.
 Obsidian sync pending: external mirror unavailable.
 
 Next: Task 6 implementation dispatch.

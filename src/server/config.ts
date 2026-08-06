@@ -20,6 +20,11 @@ const environmentSchema = z
       .default("false")
       .transform((value) => value === "true"),
     SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(7),
+    TI_PROVIDERS: z.string().default("abuseipdb,otx"),
+    ABUSEIPDB_API_KEY: z.string().optional(),
+    OTX_API_KEY: z.string().optional(),
+    TI_MIN_LEVEL: positiveInteger.default(7),
+    TI_CACHE_TTL_DAYS: positiveInteger.default(30),
     WAZUH_API_URL: z.url(),
     WAZUH_USERNAME: z.string().min(1),
     WAZUH_PASSWORD: z.string().min(1),
@@ -28,6 +33,7 @@ const environmentSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    SETTINGS_ENCRYPTION_KEY: z.string().min(32),
   })
   .superRefine((environment, context) => {
     if (
@@ -65,6 +71,13 @@ export interface AppConfig {
   maintenanceBatchSize: number;
   socAutoAnalyze: boolean;
   socAutoAnalyzeMinLevel: number;
+  ti?: {
+    providers: string[];
+    abuseipdbKey: string | null;
+    otxKey: string | null;
+    minLevel: number;
+    cacheTtlDays: number;
+  };
   wazuh: {
     apiUrl: URL;
     username: string;
@@ -72,6 +85,7 @@ export interface AppConfig {
     caPath: string | null;
     allowInsecureTls: boolean;
   };
+  settingsEncryptionKey: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
@@ -98,6 +112,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     maintenanceBatchSize: environment.MAINTENANCE_BATCH_SIZE,
     socAutoAnalyze: environment.SOC_AUTO_ANALYZE,
     socAutoAnalyzeMinLevel: environment.SOC_AUTO_ANALYZE_MIN_LEVEL,
+    ti: {
+      providers: environment.TI_PROVIDERS.split(",").map((s) => s.trim()).filter(Boolean),
+      abuseipdbKey: environment.ABUSEIPDB_API_KEY?.trim() || null,
+      otxKey: environment.OTX_API_KEY?.trim() || null,
+      minLevel: environment.TI_MIN_LEVEL,
+      cacheTtlDays: environment.TI_CACHE_TTL_DAYS,
+    },
     wazuh: {
       apiUrl: new URL(environment.WAZUH_API_URL),
       username: environment.WAZUH_USERNAME,
@@ -105,5 +126,6 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       caPath: environment.WAZUH_CA_PATH?.trim() || null,
       allowInsecureTls: environment.WAZUH_ALLOW_INSECURE_TLS,
     },
+    settingsEncryptionKey: environment.SETTINGS_ENCRYPTION_KEY,
   };
 }

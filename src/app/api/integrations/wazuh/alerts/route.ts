@@ -91,14 +91,14 @@ export async function POST(request: Request): Promise<Response> {
       void (async () => {
         const bg = createDatabase(config.databaseUrl);
         try {
-          await runAlertAnalysis(
-            bg.db,
-            { userId: "system-auto", role: "admin", permissions: new Set(["alerts.analyze", "alerts.details"]) },
-            alertId,
-            { enrich: true },
-            metadata,
-            config.settingsEncryptionKey,
-          );
+            await runAlertAnalysis(
+              bg.db,
+              { userId: "system-auto", role: "admin", permissions: new Set(["alerts.analyze", "alerts.details"]) },
+              alertId,
+              { enrich: true },
+              metadata,
+              config,
+            );
         } catch {
           // Fire-and-forget: ignore execution failures
         } finally {

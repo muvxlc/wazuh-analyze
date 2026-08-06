@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   index,
   jsonb,
   pgTable,
@@ -7,6 +8,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import { users } from "./users";
 
 export const webhookReplayKeys = pgTable(
   "webhook_replay_keys",
@@ -32,4 +35,20 @@ export const agentSnapshots = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("agent_snapshots_synced_at_idx").on(table.syncedAt.desc())],
+);
+
+export const agentTags = pgTable(
+  "agent_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    agentId: text("agent_id").notNull(),
+    tag: text("tag").notNull(),
+    createdByUserId: uuid("created_by_user_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("agent_tags_agent_tag_unique").on(table.agentId, table.tag),
+    index("agent_tags_agent_id_idx").on(table.agentId),
+    index("agent_tags_tag_idx").on(table.tag),
+  ],
 );

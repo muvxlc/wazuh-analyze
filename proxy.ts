@@ -22,11 +22,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (token && isAuthPage) {
-    const dashboardUrl = new URL("/dashboard", request.url);
-    return NextResponse.redirect(dashboardUrl);
-  }
-
+  // Do not trust cookie presence here. Session tokens are DB-backed and may be
+  // revoked or belong to a database that was replaced; the auth page must stay
+  // reachable so users can recover from a stale cookie.
   return NextResponse.next();
 }
 

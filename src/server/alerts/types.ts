@@ -16,6 +16,7 @@ export interface AlertRecord {
   ruleDescription: string;
   level: number;
   groups: string[];
+  tags: string[];
   compliance: Record<string, unknown>;
   status: AlertStatus;
   acknowledgedAt: Date | null;
@@ -54,10 +55,13 @@ export interface NormalizedAlertInput {
 export interface AlertListQuery {
   search?: string;
   agentId?: string;
+  agentIds?: string[];
   ruleId?: string;
   levelMin?: number;
   levelMax?: number;
   status?: AlertStatus;
+  groups?: string[];
+  tags?: string[];
   cursor?: string;
   limit?: number;
 }

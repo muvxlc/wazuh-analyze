@@ -1,5 +1,7 @@
 /** Wazuh adapter types — server-only boundary enforced by consumer modules. */
 
+import type { AgentTag } from "./agent-tags";
+
 export interface WazuhConfig {
   apiUrl: URL;
   username: string;
@@ -15,6 +17,7 @@ export interface WazuhAgent {
   ip: string;
   version: string;
   lastKeepAlive: string | null;
+  groups: string[];
 }
 
 export interface WazuhClient {
@@ -26,6 +29,8 @@ export interface AgentSnapshot {
   syncedAt: Date;
   stale: boolean;
   upstreamErrorCode: string | null;
+  /** Attached by the agents API route, not populated by getAgentSnapshot. */
+  agentTags?: Record<string, AgentTag[]>;
 }
 
 export interface HealthStatus {

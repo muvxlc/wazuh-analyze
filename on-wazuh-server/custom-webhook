@@ -1,5 +1,9 @@
 #!/bin/sh
 
+set -a
+. /var/ossec/integrations/custom-analyze.env
+set +a
+
 WPYTHON_BIN="framework/python/bin/python3"
 
 SCRIPT_PATH_NAME="$0"

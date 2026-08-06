@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: wazuh_dashboard_dev
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wazuh_dashboard_dev"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "55433:5432"
+    volumes:
+      - wazuh_dashboard_dev_data:/var/lib/postgresql/data
+
+volumes:
+  wazuh_dashboard_dev_data:

@@ -23,6 +23,7 @@ describe("resolvePermissions", () => {
     expect(permissions.has("overrides.manage")).toBe(true);
     expect(permissions.has("settings.manage")).toBe(true);
     expect(permissions.has("audit.read")).toBe(true);
+    expect(permissions.has("roles.manage")).toBe(true);
   });
 
   it("admin receives expected subset", () => {
@@ -44,6 +45,7 @@ describe("resolvePermissions", () => {
     expect(permissions.has("super_admins.manage")).toBe(false);
     expect(permissions.has("overrides.manage")).toBe(false);
     expect(permissions.has("settings.manage")).toBe(false);
+    expect(permissions.has("roles.manage")).toBe(false);
   });
 
   it("user receives read-only subset", () => {
@@ -96,5 +98,35 @@ describe("resolvePermissions", () => {
     expect(() =>
       resolvePermissions({ role: "unknown_role" as unknown as Role }),
     ).toThrow();
+  });
+
+  it("applies role-level overrides", () => {
+    const permissions = resolvePermissions({
+      role: "admin",
+      roleOverrides: [
+        { permission: "users.manage", effect: "deny" },
+        { permission: "audit.read", effect: "allow" },
+      ],
+    });
+    expect(permissions.has("users.manage")).toBe(false);
+    expect(permissions.has("audit.read")).toBe(true);
+  });
+
+  it("user-level deny wins over role-level allow", () => {
+    const permissions = resolvePermissions({
+      role: "admin",
+      roleOverrides: [{ permission: "users.manage", effect: "allow" }],
+      overrides: [{ permission: "users.manage", effect: "deny" }],
+    });
+    expect(permissions.has("users.manage")).toBe(false);
+  });
+
+  it("role-level deny wins over user-level allow", () => {
+    const permissions = resolvePermissions({
+      role: "admin",
+      roleOverrides: [{ permission: "audit.read", effect: "deny" }],
+      overrides: [{ permission: "audit.read", effect: "allow" }],
+    });
+    expect(permissions.has("audit.read")).toBe(false);
   });
 });
