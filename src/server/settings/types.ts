@@ -6,4 +6,11 @@ export type SystemSettingKey =
   | "wazuhAllowInsecureTls"
   | "alertRetentionDays"
   | "maintenanceBatchSize"
-  | "appUrl";
+  | "appUrl"
+  | "socAutoAnalyze"
+  | "socAutoAnalyzeMinLevel"
+  | "tiProviders"
+  | "abuseipdbKey"
+  | "otxKey"
+  | "tiMinLevel"
+  | "tiCacheTtlDays";

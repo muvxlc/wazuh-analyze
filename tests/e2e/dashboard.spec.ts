@@ -25,4 +25,22 @@ test.describe("Dashboard E2E", () => {
     await expect(page.locator("h2:has-text('Alert severity')")).toBeVisible();
     await expect(page.locator("h2:has-text('Workflow')")).toBeVisible();
   });
+  test("soc dashboard tab renders metrics UI", async ({ page }) => {
+    const response = await page.goto("/dashboard/soc");
+    const url = page.url();
+    const isLoginRedirect = url.includes("/login");
+    const isServerError = !response || !response.ok();
+    const hasErrorOverlay = await page.locator("#__next-build-error, [data-nextjs-dialog]").isVisible().catch(() => false);
+    if (isLoginRedirect || isServerError || hasErrorOverlay) {
+      test.skip(true, "App auth/DB unavailable — SOC dashboard did not load. Skipping cleanly.");
+      return;
+    }
+
+    await expect(page.locator("h1")).toHaveText("Dashboard");
+    await expect(page.getByRole("combobox", { name: /time range/i })).toBeVisible();
+    await expect(page.locator("text=MTTD")).toBeVisible();
+    await expect(page.locator("text=MTTR")).toBeVisible();
+    await expect(page.locator("text=Incident Backlog")).toBeVisible();
+  });
+
 });

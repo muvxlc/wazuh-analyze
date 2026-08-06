@@ -29,6 +29,7 @@
     "settings-cloud": "Wazuh setting",
     "settings-ai": "AI Setting",
     "settings-notifications": "Notifications",
+    "settings-soc": "SOC",
     "menu": "Menu",
     "close": "Close"
   },
@@ -108,7 +109,18 @@
     "ai-conn-testing": "Testing…",
     "ai-conn-test-save-first": "Save the connection before testing.",
     "loading": "Loading…",
-    "fetch-error": "Failed to load settings."
+    "fetch-error": "Failed to load settings.",
+    "soc": "SOC & Threat Intel",
+    "soc-auto-analyze": "Auto-analyze alerts (AI)",
+    "soc-auto-analyze-min-level": "Min level for AI analysis (1-15)",
+    "ti-providers": "Threat Intel providers",
+    "ti-abuseipdb-key": "AbuseIPDB API Key",
+    "ti-otx-key": "AlienVault OTX Key",
+    "ti-min-level": "Min level for Threat Intel (1-15)",
+    "ti-cache-ttl-days": "TI cache TTL (days)",
+    "soc-save": "Save SOC settings",
+    "soc-saving": "Saving…",
+    "soc-save-success": "SOC settings saved."
   },
   "incidents": {
     "title": "Incidents",
@@ -132,5 +144,12 @@
     "agent": "Agent",
     "rule": "Rule",
     "load-error": "Failed to load incidents."
+  },
+  "dashboard": {
+    "overview-kicker": "Operations overview",
+    "title": "Dashboard",
+    "soc-tab-group": "Dashboard view",
+    "soc-tab-overview": "Overview",
+    "soc-tab-soc": "SOC & Threat Intel"
   }
 }

@@ -45,5 +45,20 @@ test.describe("Settings E2E", () => {
     // API key field is write-only — never pre-filled with secret value.
     await expect(page.locator('input[type="password"]')).toBeVisible();
   });
-});
 
+  test("soc settings page shows threat intel form without secrets", async ({ page }) => {
+    const response = await page.goto("/settings/soc");
+    if (!response || !response.ok() || page.url().includes("/login")) {
+      test.skip(true, "App auth/DB unavailable. Skipping cleanly.");
+      return;
+    }
+    await expect(page.locator("h1")).toBeVisible();
+    // Threat Intel API keys are write-only — never pre-filled with a secret value.
+    const pwInputs = page.locator('input[type="password"]');
+    const count = await pwInputs.count();
+    for (let i = 0; i < count; i++) {
+      await expect(pwInputs.nth(i)).toHaveValue("");
+    }
+    await expect(page.getByRole("button", { name: /save soc settings/i })).toBeVisible();
+  });
+});

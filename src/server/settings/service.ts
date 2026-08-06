@@ -14,6 +14,8 @@ import type { AppConfig } from "../config";
 const SECRET_KEYS: ReadonlySet<SystemSettingKey> = new Set<SystemSettingKey>([
   "wazuhPassword",
   "wazuhUsername",
+  "abuseipdbKey",
+  "otxKey",
 ]);
 
 export function isSecretKey(key: SystemSettingKey): boolean {
@@ -29,6 +31,13 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "alertRetentionDays",
   "maintenanceBatchSize",
   "appUrl",
+  "socAutoAnalyze",
+  "socAutoAnalyzeMinLevel",
+  "tiProviders",
+  "abuseipdbKey",
+  "otxKey",
+  "tiMinLevel",
+  "tiCacheTtlDays",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {
@@ -82,6 +91,13 @@ export async function resolveEffectiveConfig(
   const wazuhAllowInsecure = eff("wazuhAllowInsecureTls", String(config.wazuh.allowInsecureTls));
   const retention = eff("alertRetentionDays", String(config.alertRetentionDays));
   const batch = eff("maintenanceBatchSize", String(config.maintenanceBatchSize));
+  const socAuto = eff("socAutoAnalyze", String(config.socAutoAnalyze));
+  const socMinLevel = eff("socAutoAnalyzeMinLevel", String(config.socAutoAnalyzeMinLevel));
+  const tiProviders = eff("tiProviders", config.ti ? config.ti.providers.join(",") : "");
+  const abuseipdb = eff("abuseipdbKey", config.ti?.abuseipdbKey ?? undefined);
+  const otx = eff("otxKey", config.ti?.otxKey ?? undefined);
+  const tiMinLevel = eff("tiMinLevel", config.ti ? String(config.ti.minLevel) : undefined);
+  const tiCacheTtl = eff("tiCacheTtlDays", config.ti ? String(config.ti.cacheTtlDays) : undefined);
   const effectiveApiUrl = wazuhApiUrl.value ? new URL(wazuhApiUrl.value) : config.wazuh.apiUrl;
   const effectiveAllowInsecureTls = wazuhAllowInsecure.value === "true";
   if (config.nodeEnv === "production") {
@@ -97,6 +113,18 @@ export async function resolveEffectiveConfig(
     ...config,
     alertRetentionDays: retention.value !== null ? Number(retention.value) : config.alertRetentionDays,
     maintenanceBatchSize: batch.value !== null ? Number(batch.value) : config.maintenanceBatchSize,
+    socAutoAnalyze: socAuto.value !== null ? socAuto.value === "true" : config.socAutoAnalyze,
+    socAutoAnalyzeMinLevel:
+      socMinLevel.value !== null ? Number(socMinLevel.value) : config.socAutoAnalyzeMinLevel,
+    ti: config.ti
+      ? {
+          providers: tiProviders.value ? tiProviders.value.split(",").map((s) => s.trim()).filter(Boolean) : config.ti.providers,
+          abuseipdbKey: abuseipdb.value ?? config.ti.abuseipdbKey,
+          otxKey: otx.value ?? config.ti.otxKey,
+          minLevel: tiMinLevel.value !== null ? Number(tiMinLevel.value) : config.ti.minLevel,
+          cacheTtlDays: tiCacheTtl.value !== null ? Number(tiCacheTtl.value) : config.ti.cacheTtlDays,
+        }
+      : undefined,
     wazuh: {
       ...config.wazuh,
       apiUrl: effectiveApiUrl,
@@ -118,6 +146,13 @@ export interface SettingsView {
   wazuhAllowInsecureTls: boolean;
   wazuhPasswordSet: boolean;
   wazuhCaPath: string | null;
+  socAutoAnalyze: boolean;
+  socAutoAnalyzeMinLevel: number;
+  tiProviders: string;
+  abuseipdbKeySet: boolean;
+  otxKeySet: boolean;
+  tiMinLevel: number;
+  tiCacheTtlDays: number;
   /** Per-key source flags: true = value came from DB row. */
   sources: Partial<Record<SystemSettingKey, boolean>>;
 }
@@ -141,6 +176,13 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
     wazuhAllowInsecureTls: effective.wazuh.allowInsecureTls,
     wazuhPasswordSet: effective.wazuh.password.length > 0,
     wazuhCaPath: effective.wazuh.caPath,
+    socAutoAnalyze: effective.socAutoAnalyze,
+    socAutoAnalyzeMinLevel: effective.socAutoAnalyzeMinLevel,
+    tiProviders: effective.ti?.providers.join(",") ?? "abuseipdb,otx",
+    abuseipdbKeySet: (effective.ti?.abuseipdbKey ?? "").length > 0,
+    otxKeySet: (effective.ti?.otxKey ?? "").length > 0,
+    tiMinLevel: effective.ti?.minLevel ?? 7,
+    tiCacheTtlDays: effective.ti?.cacheTtlDays ?? 30,
     sources: {
       wazuhApiUrl: src("wazuhApiUrl"),
       wazuhUsername: src("wazuhUsername"),
@@ -149,6 +191,13 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       wazuhAllowInsecureTls: src("wazuhAllowInsecureTls"),
       alertRetentionDays: src("alertRetentionDays"),
       maintenanceBatchSize: src("maintenanceBatchSize"),
+      socAutoAnalyze: src("socAutoAnalyze"),
+      socAutoAnalyzeMinLevel: src("socAutoAnalyzeMinLevel"),
+      tiProviders: src("tiProviders"),
+      abuseipdbKey: src("abuseipdbKey"),
+      otxKey: src("otxKey"),
+      tiMinLevel: src("tiMinLevel"),
+      tiCacheTtlDays: src("tiCacheTtlDays"),
     },
   };
 }

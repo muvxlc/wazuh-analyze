@@ -32,6 +32,13 @@ const patchSchema = z
     wazuhAllowInsecureTls: z.boolean().optional(),
     alertRetentionDays: z.number().int().positive().max(3_650).optional(),
     maintenanceBatchSize: z.number().int().positive().max(1_000_000).optional(),
+    socAutoAnalyze: z.boolean().optional(),
+    socAutoAnalyzeMinLevel: z.number().int().min(1).max(15).optional(),
+    tiProviders: z.string().optional(),
+    abuseipdbKey: z.string().max(500).optional(),
+    otxKey: z.string().max(500).optional(),
+    tiMinLevel: z.number().int().min(1).max(15).optional(),
+    tiCacheTtlDays: z.number().int().min(1).max(365).optional(),
   })
   .strict();
 
@@ -43,6 +50,13 @@ const BODY_TO_KEY: Record<string, SystemSettingKey> = {
   wazuhAllowInsecureTls: "wazuhAllowInsecureTls",
   alertRetentionDays: "alertRetentionDays",
   maintenanceBatchSize: "maintenanceBatchSize",
+  socAutoAnalyze: "socAutoAnalyze",
+  socAutoAnalyzeMinLevel: "socAutoAnalyzeMinLevel",
+  tiProviders: "tiProviders",
+  abuseipdbKey: "abuseipdbKey",
+  otxKey: "otxKey",
+  tiMinLevel: "tiMinLevel",
+  tiCacheTtlDays: "tiCacheTtlDays",
 };
 
 export async function GET(request: Request): Promise<Response> {

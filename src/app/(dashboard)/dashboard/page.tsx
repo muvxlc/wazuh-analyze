@@ -23,15 +23,9 @@ export default function DashboardPage() {
 
   if (!summary) {
     return (
-      <section className="page-section space-y-6">
-        <header>
-          <p className="mb-2 text-sm font-medium text-[var(--color-primary-deep)]">Operations overview</p>
-          <h1>Dashboard</h1>
-        </header>
-        <p className={failed ? "status-error" : "rounded-[var(--radius-panel)] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-4"} role="status">
-          {failed ? "Dashboard unavailable" : "Loading dashboard"}
-        </p>
-      </section>
+      <p className={failed ? "status-error" : "rounded-[var(--radius-panel)] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-4"} role="status">
+        {failed ? "Dashboard unavailable" : "Loading dashboard"}
+      </p>
     );
   }
 
@@ -43,17 +37,13 @@ export default function DashboardPage() {
   const severityBuckets = aggregateSeverity(summary.alertSeverity);
 
   return (
-    <section className="page-section space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-2 text-sm font-medium text-[var(--color-primary-deep)]">Operations overview</p>
-          <h1 className="mb-0">Dashboard</h1>
-        </div>
+    <div className="space-y-6">
+      <div className="flex justify-end">
         <p className={`wazuh-status wazuh-status-${summary.health.connectionStatus}`} aria-label={`Wazuh ${summary.health.connectionStatus}: ${summary.health.reason}`}>
           <span className="wazuh-status-dot" aria-hidden="true" />
           <span>Wazuh: <strong>{summary.health.connectionStatus}</strong></span>
         </p>
-      </header>
+      </div>
       <div className="dashboard-grid">
         {severityBuckets.map(({ severity, count }) => (
           <section className="panel dashboard-panel" key={severity} aria-label={`${severityLabel(severity)} severity summary`}>
@@ -92,7 +82,7 @@ export default function DashboardPage() {
           </section>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 

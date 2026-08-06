@@ -29,6 +29,7 @@
     "settings-cloud": "ตั้งค่า Wazuh",
     "settings-ai": "AI Setting",
     "settings-notifications": "การแจ้งเตือน",
+    "settings-soc": "SOC",
     "menu": "เมนู",
     "close": "ปิด"
   },
@@ -108,7 +109,18 @@
     "ai-conn-testing": "กำลังทดสอบ…",
     "ai-conn-test-save-first": "บันทึกการเชื่อมต่อก่อนทดสอบ",
     "loading": "กำลังโหลด…",
-    "fetch-error": "โหลดการตั้งค่าไม่สำเร็จ"
+    "fetch-error": "โหลดการตั้งค่าไม่สำเร็จ",
+    "soc": "SOC & Threat Intel",
+    "soc-auto-analyze": "วิเคราะห์แจ้งเตือนอัตโนมัติ (AI)",
+    "soc-auto-analyze-min-level": "ระดับต่ำสุดสำหรับ AI (1-15)",
+    "ti-providers": "ผู้ให้บริการ Threat Intel",
+    "ti-abuseipdb-key": "AbuseIPDB API Key",
+    "ti-otx-key": "AlienVault OTX Key",
+    "ti-min-level": "ระดับต่ำสุดสำหรับ Threat Intel (1-15)",
+    "ti-cache-ttl-days": "ระยะเวลาเก็บ TI แคช (วัน)",
+    "soc-save": "บันทึกการตั้งค่า SOC",
+    "soc-saving": "กำลังบันทึก…",
+    "soc-save-success": "บันทึกการตั้งค่า SOC แล้ว"
   },
   "incidents": {
     "title": "เหตุการณ์ด้านความปลอดภัย",
@@ -132,5 +144,12 @@
     "agent": "ตัวแทน (Agent)",
     "rule": "กฎ",
     "load-error": "โหลดข้อมูลเหตุการณ์ไม่สำเร็จ"
+  },
+  "dashboard": {
+    "overview-kicker": "ภาพรวมระบบปฏิบัติการ",
+    "title": "แดชบอร์ด",
+    "soc-tab-group": "มุมมองแดชบอร์ด",
+    "soc-tab-overview": "ภาพรวม",
+    "soc-tab-soc": "SOC & Threat Intel"
   }
 }

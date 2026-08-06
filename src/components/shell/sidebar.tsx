@@ -40,6 +40,7 @@ const settingsSubItems: SettingsSubItem[] = [
   { key: "settings-local", href: "/settings/local", label: "settings-local" },
   { key: "settings-cloud", href: "/settings/cloud", label: "settings-cloud" },
   { key: "settings-ai", href: "/settings/ai", label: "settings-ai" },
+  { key: "settings-soc", href: "/settings/soc", label: "settings-soc" },
   { key: "settings-notifications", href: "/settings/notifications", label: "settings-notifications" },
 ];
 
