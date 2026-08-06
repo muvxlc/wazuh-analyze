@@ -50,6 +50,13 @@
       "when": 1785951771100,
       "tag": "0006_role_permission_overrides",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785998751589,
+      "tag": "0007_dizzy_iron_monger",
+      "breakpoints": true
     }
   ]
 }

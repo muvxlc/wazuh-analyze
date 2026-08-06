@@ -15,6 +15,11 @@ const environmentSchema = z
     WEBHOOK_REPLAY_WINDOW_SECONDS: positiveInteger.default(300),
     ALERT_RETENTION_DAYS: positiveInteger.default(90),
     MAINTENANCE_BATCH_SIZE: positiveInteger.default(1_000),
+    SOC_AUTO_ANALYZE: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(7),
     WAZUH_API_URL: z.url(),
     WAZUH_USERNAME: z.string().min(1),
     WAZUH_PASSWORD: z.string().min(1),
@@ -58,6 +63,8 @@ export interface AppConfig {
   webhookReplayWindowSeconds: number;
   alertRetentionDays: number;
   maintenanceBatchSize: number;
+  socAutoAnalyze: boolean;
+  socAutoAnalyzeMinLevel: number;
   wazuh: {
     apiUrl: URL;
     username: string;
@@ -89,6 +96,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     webhookReplayWindowSeconds: environment.WEBHOOK_REPLAY_WINDOW_SECONDS,
     alertRetentionDays: environment.ALERT_RETENTION_DAYS,
     maintenanceBatchSize: environment.MAINTENANCE_BATCH_SIZE,
+    socAutoAnalyze: environment.SOC_AUTO_ANALYZE,
+    socAutoAnalyzeMinLevel: environment.SOC_AUTO_ANALYZE_MIN_LEVEL,
     wazuh: {
       apiUrl: new URL(environment.WAZUH_API_URL),
       username: environment.WAZUH_USERNAME,

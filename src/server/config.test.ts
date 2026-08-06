@@ -31,6 +31,8 @@ describe("loadConfig", () => {
       webhookReplayWindowSeconds: 300,
       alertRetentionDays: 90,
       maintenanceBatchSize: 1_000,
+      socAutoAnalyze: false,
+      socAutoAnalyzeMinLevel: 7,
       wazuh: {
         username: "wazuh-user",
         password: "wazuh-password",
@@ -61,6 +63,20 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig(validEnv({ WEBHOOK_REPLAY_WINDOW_SECONDS: "0" })),
     ).toThrow("WEBHOOK_REPLAY_WINDOW_SECONDS");
+    expect(() =>
+      loadConfig(validEnv({ SOC_AUTO_ANALYZE_MIN_LEVEL: "0" })),
+    ).toThrow("SOC_AUTO_ANALYZE_MIN_LEVEL");
+  });
+
+  it("loads custom SOC analysis config when set", () => {
+    const config = loadConfig(
+      validEnv({
+        SOC_AUTO_ANALYZE: "true",
+        SOC_AUTO_ANALYZE_MIN_LEVEL: "12",
+      }),
+    );
+    expect(config.socAutoAnalyze).toBe(true);
+    expect(config.socAutoAnalyzeMinLevel).toBe(12);
   });
 
   it("rejects insecure Wazuh TLS in production", () => {

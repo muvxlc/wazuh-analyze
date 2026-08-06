@@ -18,6 +18,7 @@ process.env.WAZUH_USERNAME = "test";
 process.env.WAZUH_PASSWORD = "test";
 process.env.WAZUH_CA_PATH = "";
 process.env.WAZUH_ALLOW_INSECURE_TLS = "false";
+process.env.SETTINGS_ENCRYPTION_KEY = "k".repeat(32);
 
 import * as schema from "../../../../../server/db/schema";
 import { createTestPool } from "../../../../../test/postgres/database";
@@ -26,6 +27,8 @@ import { POST } from "./route";
 
 function sign(body: string, timestamp: string, secret: string = SECRET): string {
   const hmac = createHmac("sha256", secret)
+    .update(timestamp, "ascii")
+    .update(".", "ascii")
     .update(Buffer.from(body, "utf8"))
     .digest("hex");
   return `sha256=${hmac}`;
@@ -179,6 +182,18 @@ describe("POST /api/integrations/wazuh/alerts", () => {
       expect(data.error).not.toHaveProperty("message");
     } finally {
       await pool.query("ALTER TABLE webhook_replay_keys_bak RENAME TO webhook_replay_keys");
+    }
+  });
+
+  it("triggers fire-and-forget analysis when socAutoAnalyze is true and level >= minLevel", async () => {
+    process.env.SOC_AUTO_ANALYZE = "true";
+    process.env.SOC_AUTO_ANALYZE_MIN_LEVEL = "7";
+    try {
+      const altBody = '{"id":"fixture-ai","rule":{"level":8,"id":"100002","description":"AI Fixture"},"agent":{"id":"001","name":"agent-1"},"timestamp":"2026-08-02T00:00:00Z"}';
+      const res = await POST(buildPost({ body: altBody, timestamp: validTimestamp }));
+      expect(res.status).toBe(202);
+    } finally {
+      process.env.SOC_AUTO_ANALYZE = "false";
     }
   });
 });

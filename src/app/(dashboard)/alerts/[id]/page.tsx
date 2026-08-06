@@ -8,13 +8,15 @@ import { notFound, redirect } from "next/navigation";
 export default async function AlertDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const config = loadConfig(process.env); const { db, pool } = createDatabase(config.databaseUrl);
   let alert;
+  let canAnalyze = false;
   try {
     const user = await currentUser(db);
     if (!user) redirect("/login");
     alert = await getAlertDetail(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, (await params).id);
+    canAnalyze = user.permissions.has("alerts.analyze") || user.role === "super_admin" || user.role === "admin";
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("alert not found")) notFound();
     throw error;
   } finally { await pool.end(); }
-  return <AlertDetail alert={alert!} />;
+  return <AlertDetail alert={alert!} canAnalyze={canAnalyze} />;
 }

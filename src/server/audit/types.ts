@@ -13,7 +13,9 @@ export type AuditAction =
   | "settings.update"
   | "ai_connection.create"
   | "ai_connection.update"
-  | "ai_connection.delete";
+  | "ai_connection.delete"
+  | "role_permission.update"
+  | "alert.analyze";
 
 export interface AuditEventInput {
   actorUserId: string | null;
