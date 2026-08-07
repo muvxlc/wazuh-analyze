@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   agentsList: "agents.list",
   agentsManage: "agents.manage",
   queuesRead: "queues.read",
+  queuesManage: "queues.manage",
   incidentsRead: "incidents.read",
   incidentsList: "incidents.list",
   incidentsManage: "incidents.manage",

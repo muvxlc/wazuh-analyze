@@ -22,11 +22,13 @@ import { GET } from "./route";
 const mockAuth = vi.fn();
 const mockGetQueues = vi.fn();
 const mockGetPgBoss = vi.fn();
+const mockExecute = vi.fn();
 
 vi.mock("../../../server/db/client", () => ({
   createDatabase: () => ({
     db: {
       transaction: vi.fn(async (fn: Function) => fn({ delete: vi.fn(), insert: vi.fn(), execute: vi.fn() })),
+      execute: mockExecute,
     },
     pool: { end: vi.fn() },
   }),
@@ -56,6 +58,10 @@ function sessionCookie(token: string) {
   });
 }
 
+vi.mock("../../../server/daemon/backfill", () => ({
+  countPendingAlerts: vi.fn().mockResolvedValue(42),
+}));
+
 describe("Queues route", () => {
   const adminUser = {
     id: "user-1",
@@ -75,6 +81,7 @@ describe("Queues route", () => {
   beforeEach(() => {
     mockAuth.mockReset();
     mockGetPgBoss.mockReset();
+    mockExecute.mockReset();
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -92,6 +99,7 @@ describe("Queues route", () => {
 
   it("returns queue counts on GET 200", async () => {
     mockAuth.mockResolvedValueOnce(adminUser);
+    mockExecute.mockResolvedValue([]);
     mockGetPgBoss.mockResolvedValueOnce({
       getQueues: mockGetQueues.mockResolvedValue([
         { name: QUEUE_ANALYZE_ALERT, queuedCount: 3, readyCount: 2, activeCount: 1, failedCount: 0, deferredCount: 0, totalCount: 6 },

@@ -54,7 +54,21 @@
     "completed": "เสร็จสิ้น",
     "failed": "ล้มเหลว",
     "total": "ทั้งหมด",
-    "deferred": "เลื่อนเวลา"
+    "deferred": "เลื่อนเวลา",
+    "backfill": "วิเคราะห์ Alert ที่ค้างอยู่",
+    "backfillSuccess": "ส่งคิววิเคราะห์ {count} รายการ",
+    "metrics": "สถิติ (24 ชม.)",
+    "pendingAlerts": "Alert รอวิเคราะห์",
+    "analyzedToday": "วิเคราะห์แล้ว",
+    "runningNow": "กำลังทำงาน",
+    "failedToday": "ล้มเหลว",
+    "successRate": "อัตราสำเร็จ",
+    "latestJobs": "งานล่าสุด",
+    "entity": "เป้าหมาย",
+    "phase": "ขั้นตอน",
+    "duration": "เวลา",
+    "retries": "ลองใหม่",
+    "graphTitle": "ปริมาณงานตามเวลา"
   },
   "locale": {
     "en": "English",

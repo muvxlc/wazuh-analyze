@@ -16,6 +16,7 @@ import { NotificationEvent } from "../notifications/render";
 import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
 import { executeAction } from "../actions/action-executor";
 import { runWeeklyReport } from "../reports/report-job";
+import { setQueuePhase } from "./progress";
 
 export const QUEUE_WEEKLY_REPORT = "weekly-soc-report";
 
@@ -55,8 +56,15 @@ export async function registerQueues(
         ip: "127.0.0.1",
         userAgent: "Wazuh SOC Queue",
       };
-      await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { enrich: true }, metadata, effConfig);
-      await correlateAlert(bg.db, alertId);
+      try {
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "loading", { jobId: job.id });
+        await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { enrich: true }, metadata, effConfig);
+        await correlateAlert(bg.db, alertId);
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "completed", { jobId: job.id });
+      } catch (err) {
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "failed", { jobId: job.id, detail: err instanceof Error ? err.message : String(err) });
+        throw err;
+      }
     }
   });
 

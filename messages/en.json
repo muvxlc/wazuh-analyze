@@ -54,7 +54,21 @@
     "completed": "Completed",
     "failed": "Failed",
     "total": "Total",
-    "deferred": "Deferred"
+    "deferred": "Deferred",
+    "backfill": "Analyze pending alerts",
+    "backfillSuccess": "Enqueued {count} alerts",
+    "metrics": "Metrics (24h)",
+    "pendingAlerts": "Pending Alerts",
+    "analyzedToday": "Analyzed",
+    "runningNow": "Running Now",
+    "failedToday": "Failed",
+    "successRate": "Success Rate",
+    "latestJobs": "Latest Jobs",
+    "entity": "Entity",
+    "phase": "Phase",
+    "duration": "Duration",
+    "retries": "Retries",
+    "graphTitle": "Jobs over time"
   },
   "locale": {
     "en": "English",
