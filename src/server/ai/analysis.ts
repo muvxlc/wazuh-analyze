@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AlertRecord } from "../alerts/types";
 import type { ChatProvider } from "./connections";
 import type { AnalysisContext } from "../enrichment/context-builder";
+import { AppError } from "../errors";
 
 // MITRE ATT&CK technique ids look like `T1059` or `T1059.001`. Validate the
 // format only — the value is still untrusted LLM output, never executed.
@@ -116,8 +117,28 @@ export async function analyzeAlert(
   try {
     const result = await provider.chat(SYSTEM_PROMPT, buildAlertAnalysisPrompt(alert, context), controller.signal);
     // ponytail: regex strips basic markdown code blocks; add AST JSON extractor when providers return conversational commentary around JSON.
-    const parsed = JSON.parse(result.replace(/^```(?:json)?\s*|\s*```$/gi, ""));
-    return aiVerdictSchema.parse(parsed);
+    const cleaned = result.replace(/^```(?:json)?\s*|\s*```$/gi, "");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new AppError("ai_response_invalid", 502, { reason: "non_json_response" });
+    }
+    const verdict = aiVerdictSchema.safeParse(parsed);
+    if (!verdict.success) {
+      throw new AppError("ai_response_invalid", 502, { reason: "schema_validation_failed" });
+    }
+    return verdict.data;
+  } catch (err) {
+    // AbortController timeout surfaces as AbortError — normalize to a typed error.
+    if (err instanceof AppError) throw err;
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new AppError("ai_response_timeout", 504, { timeoutMs });
+    }
+    throw new AppError("ai_response_invalid", 502, {
+      reason: "provider_error",
+      message: err instanceof Error ? err.message : String(err),
+    });
   } finally {
     clearTimeout(timeout);
   }

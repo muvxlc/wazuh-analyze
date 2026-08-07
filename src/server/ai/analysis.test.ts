@@ -41,6 +41,16 @@ describe("AI analysis contract", () => {
     expect(aiVerdictSchema.safeParse(verdict).success).toBe(true);
   });
 
+  it("returns typed error for non-JSON provider output", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue("not JSON") };
+    await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({ code: "ai_response_invalid", status: 502 });
+  });
+
+  it("returns typed error for invalid verdict schema", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ confidence: 2 })) };
+    await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({ code: "ai_response_invalid", status: 502 });
+  });
+
   it("rejects malformed MITRE technique ids", async () => {
     const provider = {
       chat: vi.fn().mockResolvedValue(JSON.stringify({
