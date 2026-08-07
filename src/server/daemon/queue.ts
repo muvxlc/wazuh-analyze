@@ -38,7 +38,8 @@ export async function registerQueues(
 ): Promise<void> {
   const bg = createDatabase(config.databaseUrl);
 
-  await pgBoss.work(QUEUE_ANALYZE_ALERT, async (jobs: JobBatch<{ alertId: string }>) => {
+  // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
+  await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string }>) => {
     const effConfig = await resolveEffectiveConfig(bg.db, config);
     for (const job of jobs) {
       const alertId = job.data.alertId;
