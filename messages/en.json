@@ -31,7 +31,29 @@
     "settings-notifications": "Notifications",
     "settings-soc": "SOC",
     "menu": "Menu",
-    "close": "Close"
+    "close": "Close",
+    "queues": "Queues"
+  },
+  "queues": {
+    "title": "Queues",
+    "subtitle": "Monitor background job queues",
+    "loading": "Loading queues…",
+    "error": "Failed to load queues.",
+    "lastUpdated": "Last updated",
+    "refresh": "Refresh",
+    "queue": "Queue",
+    "count": "Count",
+    "status": "Status",
+    "status-idle": "Idle",
+    "status-active": "Active",
+    "status-paused": "Paused",
+    "queued": "Queued",
+    "ready": "Ready",
+    "active": "Active",
+    "completed": "Completed",
+    "failed": "Failed",
+    "total": "Total",
+    "deferred": "Deferred"
   },
   "locale": {
     "en": "English",

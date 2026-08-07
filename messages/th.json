@@ -31,7 +31,29 @@
     "settings-notifications": "การแจ้งเตือน",
     "settings-soc": "SOC",
     "menu": "เมนู",
-    "close": "ปิด"
+    "close": "ปิด",
+    "queues": "คิว"
+  },
+  "queues": {
+    "title": "คิว",
+    "subtitle": "ตรวจสอบคิวงานพื้นหลัง",
+    "loading": "กำลังโหลดคิว…",
+    "error": "โหลดคิวไม่สำเร็จ",
+    "lastUpdated": "อัปเดตล่าสุด",
+    "refresh": "รีเฟรช",
+    "queue": "คิว",
+    "count": "จำนวน",
+    "status": "สถานะ",
+    "status-idle": "ว่าง",
+    "status-active": "ทำงาน",
+    "status-paused": "หยุดชั่วคราว",
+    "queued": "รอคิว",
+    "ready": "พร้อมทำงาน",
+    "active": "กำลังทำงาน",
+    "completed": "เสร็จสิ้น",
+    "failed": "ล้มเหลว",
+    "total": "ทั้งหมด",
+    "deferred": "เลื่อนเวลา"
   },
   "locale": {
     "en": "English",
