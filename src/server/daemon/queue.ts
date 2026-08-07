@@ -38,6 +38,12 @@ export async function registerQueues(
 ): Promise<void> {
   const bg = createDatabase(config.databaseUrl);
 
+  // Ensure queues exist before workers attach, avoiding race conditions on fresh DBs.
+  await pgBoss.createQueue(QUEUE_ANALYZE_ALERT).catch(() => {});
+  await pgBoss.createQueue(QUEUE_DISPATCH_NOTIFICATION).catch(() => {});
+  await pgBoss.createQueue(QUEUE_EXECUTE_ACTION).catch(() => {});
+  await pgBoss.createQueue(QUEUE_WEEKLY_REPORT).catch(() => {});
+
   // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
   await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string }>) => {
     const effConfig = await resolveEffectiveConfig(bg.db, config);
