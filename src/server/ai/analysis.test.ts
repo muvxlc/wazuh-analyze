@@ -87,6 +87,7 @@ describe("AI analysis contract", () => {
         rule: { id: "510", description: "Rootcheck" },
         full_log: "sensitive verbose log ".repeat(2_000),
         previous_output: "old output",
+        previous_log: "netstat log dump",
         netstat: "network output",
         useful: "kept ".repeat(4_000),
       },
@@ -95,6 +96,7 @@ describe("AI analysis contract", () => {
     expect(prompt).toContain("[truncated]");
     expect(prompt).not.toContain("sensitive verbose log");
     expect(prompt).not.toContain("old output");
+    expect(prompt).not.toContain("netstat log dump");
     expect(prompt).not.toContain("network output");
   });
 });

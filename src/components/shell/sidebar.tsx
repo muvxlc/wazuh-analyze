@@ -72,7 +72,7 @@ export function Sidebar({ permissions }: SidebarProps) {
           </Link>
         );
       })}
-      {(permissions.has(PERMISSIONS.usersRead) || permissions.has(PERMISSIONS.rolesRead) || permissions.has(PERMISSIONS.settingsManage)) && (
+      {(permissions.has(PERMISSIONS.usersRead) || permissions.has(PERMISSIONS.rolesRead) || permissions.has(PERMISSIONS.queuesRead) || permissions.has(PERMISSIONS.settingsManage)) && (
         <>
           <div className="my-2 border-t border-[var(--color-hairline)]" />
           <p className="mb-2 px-3 text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">Admin</p>
