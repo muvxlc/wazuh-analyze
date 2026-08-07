@@ -16,7 +16,7 @@ interface UndoState {
   readonly undoTo: TransitionTarget | null;
 }
 
-export function AlertsClient({ canModify }: { readonly canModify: boolean }) {
+export function AlertsClient({ canModify, canAnalyze }: { readonly canModify: boolean; readonly canAnalyze: boolean }) {
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [cursor, setCursor] = useState<string | null>(null);
@@ -174,6 +174,7 @@ export function AlertsClient({ canModify }: { readonly canModify: boolean }) {
         alert={detailAlert}
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        canAnalyze={canAnalyze}
       />
       {undoState && (
         <UndoToast
