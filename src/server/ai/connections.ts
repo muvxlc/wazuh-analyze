@@ -357,7 +357,7 @@ class LmStudioChatProvider implements ChatProvider {
       {
         method: "POST",
         headers: buildHeaders(this.config),
-        body: JSON.stringify({ model: this.config.model, system_prompt: systemPrompt, input, max_tokens: 2_048 }),
+        body: JSON.stringify({ model: this.config.model, system_prompt: systemPrompt, input }),
         ...(signal ? { signal } : {}),
       },
       this.config.timeoutMs,
