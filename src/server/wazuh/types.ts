@@ -8,6 +8,12 @@ export interface WazuhConfig {
   password: string;
   caPath: string | null;
   allowInsecureTls: boolean;
+  /** Optional Elasticsearch/OpenSearch (Wazuh indexer) connection for vuln inventory. */
+  indexer?: {
+    url: URL;
+    username: string;
+    password: string;
+  } | null;
 }
 
 export interface WazuhAgent {

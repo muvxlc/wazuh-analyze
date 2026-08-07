@@ -33,6 +33,9 @@ const environmentSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    WAZUH_INDEXER_URL: z.string().optional(),
+    WAZUH_INDEXER_USERNAME: z.string().optional(),
+    WAZUH_INDEXER_PASSWORD: z.string().optional(),
     SETTINGS_ENCRYPTION_KEY: z.string().min(32),
   })
   .superRefine((environment, context) => {
@@ -84,6 +87,11 @@ export interface AppConfig {
     password: string;
     caPath: string | null;
     allowInsecureTls: boolean;
+    indexer?: {
+      url: URL;
+      username: string;
+      password: string;
+    } | null;
   };
   settingsEncryptionKey: string;
 }
@@ -125,6 +133,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
       password: environment.WAZUH_PASSWORD,
       caPath: environment.WAZUH_CA_PATH?.trim() || null,
       allowInsecureTls: environment.WAZUH_ALLOW_INSECURE_TLS,
+      indexer: environment.WAZUH_INDEXER_URL?.trim()
+        ? {
+            url: new URL(environment.WAZUH_INDEXER_URL),
+            username: environment.WAZUH_INDEXER_USERNAME?.trim() || environment.WAZUH_USERNAME,
+            password: environment.WAZUH_INDEXER_PASSWORD?.trim() || environment.WAZUH_PASSWORD,
+          }
+        : null,
     },
     settingsEncryptionKey: environment.SETTINGS_ENCRYPTION_KEY,
   };

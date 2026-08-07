@@ -33,3 +33,14 @@ Append-only log. After every task/checkpoint, document state + next step so any 
 **Baseline:** Unit 311 (was 315; −4 from removed analyzer-job.test.ts) | Integration 105. Total 416 passed | 2 skipped. GREEN.
 **Trade-offs:** pg-boss auto-creates `boss` schema on first `start()`; migration only adds pgcrypto + documents. Old `dispatchNotificationBackground` removed (breaking for any external caller — none in repo).
 **Next:** Task 3 (vuln inventory via ES indexer) on a new branch.
+
+---
+## Task 3 — 2026-08-07 (vuln inventory via indexer)
+**Done:**
+1. `src/server/wazuh/indexer.ts`: `fetchAgentVulnerabilities()` — POST to `wazuh-states-vulnerabilities-*/_search` on ES/Opensearch (Wazuh indexer). Basic auth, undici Agent TLS options, 10s timeout, swallows errors → `[]`.
+2. `src/server/config.ts` + `src/server/wazuh/types.ts`: optional `WAZUH_INDEXER_URL` / `WAZUH_INDEXER_USERNAME` / `WAZUH_INDEXER_PASSWORD`; falls back to REST API creds. `WazuhConfig.indexer` optional.
+3. `src/server/enrichment/context-builder.ts` + `recipe.ts`: new `vulnerabilities` EnrichmentKey, triggered on `vulnerability`/`cve`/syscollector keywords. Per-section cap `VULNERABILITY_BUDGET_BYTES = 3_000`, critical-severity CVEs prioritized.
+
+**Baseline:** Unit 311 | Integration 105. Total 416 | 2 skipped. GREEN.
+**Trade-offs:** No live indexer to validate query shape — followed standard wazuh-states-vulnerabilities mapping (agent.id, vulnerability.*). Empty fallback when indexer unset keeps enrichment optional.
+**Next:** Task 4 (approval-gated actions).

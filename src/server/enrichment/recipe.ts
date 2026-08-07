@@ -15,6 +15,7 @@ export type EnrichmentKey =
   | "ports"
   | "packages"
   | "services"
+  | "vulnerabilities"
   | "threatIntel";
 
 interface RecipeRule {
@@ -27,7 +28,7 @@ const RECIPE_RULES: RecipeRule[] = [
   { keywords: ["rootcheck", "malware", "yara", "rootkit"], keys: ["rootcheck", "processes", "ports", "threatIntel"] },
   { keywords: ["syscheck", "fim", "file_integrity"], keys: ["syscheck"] },
   { keywords: ["sca", "policy_monitoring", "cis"], keys: ["sca"] },
-  { keywords: ["syscollector", "inventory", "it_hygiene"], keys: ["processes", "ports", "packages", "services"] },
+  { keywords: ["syscollector", "inventory", "it_hygiene", "vulnerability", "cve"], keys: ["processes", "ports", "packages", "services", "vulnerabilities"] },
   { keywords: ["web", "attack", "exploit", "injection", "xss", "rfi", "lfi"], keys: ["relatedAlerts", "threatIntel"] },
 ];
 
