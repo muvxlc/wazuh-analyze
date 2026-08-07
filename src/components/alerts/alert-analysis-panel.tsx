@@ -49,8 +49,12 @@ export function AlertAnalysisPanel({ alertId, canAnalyze }: AlertAnalysisPanelPr
         body: JSON.stringify({ enrich: true }),
       });
       if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { error?: { code?: string } };
-        throw new Error(payload?.error?.code ?? `Request failed with status ${res.status}`);
+        const payload = (await res.json().catch(() => ({}))) as {
+          error?: { code?: string; upstreamStatus?: number };
+        };
+        const code = payload?.error?.code ?? `Request failed with status ${res.status}`;
+        const upstream = payload?.error?.upstreamStatus;
+        throw new Error(upstream ? `${code} (provider ${upstream})` : code);
       }
       const { data } = (await res.json()) as { data: { verdict: AiVerdict } };
       setVerdict(data.verdict);

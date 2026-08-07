@@ -16,7 +16,8 @@ export default async function AlertsPage() {
     const canModify =
       user.permissions.has(PERMISSIONS.alertsAcknowledge) ||
       user.permissions.has(PERMISSIONS.alertsResolve);
-    return <AlertsClient canModify={canModify} />;
+    const canAnalyze = user.permissions.has(PERMISSIONS.alertsAnalyze);
+    return <AlertsClient canModify={canModify} canAnalyze={canAnalyze} />;
   } finally {
     await pool.end();
   }
