@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { RawJson } from "./raw-json";
+import { AlertAnalysisPanel } from "./alert-analysis-panel";
 import { SEVERITY_COLORS, severityFromLevel, severityLabel } from "../../server/alerts/severity-mapper";
 import type { AlertDetail as AlertDetailType } from "../../server/alerts/types";
 
@@ -9,9 +11,10 @@ interface AlertDrawerProps {
   alert: AlertDetailType | null;
   isOpen: boolean;
   onClose: () => void;
+  canAnalyze?: boolean;
 }
 
-export function AlertDrawer({ alert, isOpen, onClose }: AlertDrawerProps) {
+export function AlertDrawer({ alert, isOpen, onClose, canAnalyze = false }: AlertDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -79,15 +82,21 @@ export function AlertDrawer({ alert, isOpen, onClose }: AlertDrawerProps) {
       <div className="alert-drawer-panel w-full bg-[var(--color-canvas)] p-4 shadow-[var(--shadow-modal)] md:max-w-4xl md:h-auto md:max-h-[90vh] md:rounded-[8px] md:m-auto flex flex-col h-full">
         <div className="mb-4 flex items-center justify-between border-b border-[var(--color-hairline)] pb-2 flex-none">
           <h2 className="m-0 text-base font-medium">{alert.ruleDescription}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="outline-button px-2 py-1 text-[13px]"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href={`/alerts/${alert.id}`} className="outline-button px-2 py-1 text-[13px]">
+              Full detail
+            </Link>
+            <button
+              type="button"
+              onClick={onClose}
+              className="outline-button px-2 py-1 text-[13px]"
+            >
+              Close
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
+          <AlertAnalysisPanel alertId={alert.id} canAnalyze={canAnalyze} />
           <dl className="detail-list">
             <div><dt>Agent</dt><dd>{alert.agentName ?? alert.agentId ?? "-"}</dd></div>
             <div><dt>Rule ID</dt><dd>{alert.ruleId ?? "-"}</dd></div>
