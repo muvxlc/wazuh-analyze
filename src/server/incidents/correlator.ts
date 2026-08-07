@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import type { Database } from "../db/types";
 import * as schema from "../db/schema";
-import { dispatchNotificationBackground } from "../notifications/dispatcher";
+import { enqueueNotification } from "../daemon/queue";
 
 export interface CorrelateResult {
   incidentId: string;
@@ -103,13 +103,13 @@ export async function correlateAlert(
       metadata: { reason: "correlator_created", firstAlertId: alert.id },
     });
 
-    dispatchNotificationBackground({
+    void enqueueNotification({
       type: "incident.created",
       targetId: newIncident.id,
       severity,
       title,
       summary: `Triggered by rule ${ruleId} on agent ${agentId}`,
-    });
+    }).catch(console.error);
 
     return { incidentId: newIncident.id, created: true };
   });

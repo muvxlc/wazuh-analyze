@@ -121,20 +121,3 @@ async function logDelivery(
   });
 }
 
-export function dispatchNotificationBackground(
-  event: NotificationEvent,
-  databaseUrl = process.env.DATABASE_URL,
-  encryptionKey = process.env.SETTINGS_ENCRYPTION_KEY,
-): void {
-  if (!databaseUrl || !encryptionKey) return;
-  void (async () => {
-    const bg = createDatabase(databaseUrl);
-    try {
-      await dispatchNotification(bg.db, event, encryptionKey);
-    } catch {
-      // Silent error suppression for background pool
-    } finally {
-      await bg.pool.end();
-    }
-  })();
-}

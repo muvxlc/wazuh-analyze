@@ -7,7 +7,7 @@ import { ingestWazuhAlert } from "../../../../../server/ingestion/ingest";
 import { toErrorResponse } from "../../../../../server/http/error-response";
 import { getRequestMetadata } from "../../../../../server/http/request-metadata";
 import { AppError } from "../../../../../server/errors";
-import { dispatchNotificationBackground } from "../../../../../server/notifications/dispatcher";
+import { enqueueNotification, enqueueAlertAnalysis } from "../../../../../server/daemon/queue";
 
 const MAX_BODY_SIZE = 1_048_576; // 1 MiB fallback; actual max from config
 
@@ -85,22 +85,16 @@ export async function POST(request: Request): Promise<Response> {
       replayWindowSeconds: config.webhookReplayWindowSeconds,
     });
 
-    // Auto-analysis is owned by the background daemon (src/server/daemon), which
-    // sweeps for unanalyzed alerts above the severity threshold. Gated by the
-    // same `socAutoAnalyze` flag, resolved live from system_settings each tick.
-    // Keeping ingestion synchronous preserves webhook latency.
+    // ponytail: queue alert analysis instead of relying on a daemon polling loop
+    void enqueueAlertAnalysis(result.alert.id).catch(console.error);
 
     if (result.inserted && result.alert.level >= 12) {
-      dispatchNotificationBackground(
-        {
-          type: "alert.high_severity",
-          targetId: result.alert.id,
-          severity: result.alert.level,
-          title: `High severity alert level ${result.alert.level} ingested`,
-        },
-        config.databaseUrl,
-        config.settingsEncryptionKey,
-      );
+      void enqueueNotification({
+        type: "alert.high_severity",
+        targetId: result.alert.id,
+        severity: result.alert.level,
+        title: `High severity alert level ${result.alert.level} ingested`,
+      }).catch(console.error);
     }
 
     // Duplicate alert (same fingerprint) -> 409 per spec

@@ -7,9 +7,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { loadConfig } = await import("./server/config");
-    const { startDaemon } = await import("./server/daemon/runner");
-    console.log("[Instrumentation] Node.js runtime detected, initializing background services...");
+    const { startWorker } = await import("./server/daemon/worker");
+    console.log("[Instrumentation] Node.js runtime detected, initializing pg-boss worker...");
     const config = loadConfig(process.env);
-    startDaemon(config);
+    void startWorker(config).catch((err) =>
+      console.error("[Instrumentation] Worker failed to start:", err),
+    );
   }
 }
