@@ -53,10 +53,10 @@ export function AlertFilters({
   }));
 
   return (
-    <form className="panel alert-filters" onSubmit={handleSubmit}>
+    <form suppressHydrationWarning className="panel alert-filters" onSubmit={handleSubmit}>
       <label className="form-field">
         Search
-        <input name="search" placeholder="Rule or agent" />
+        <input suppressHydrationWarning name="search" placeholder="Rule or agent" />
       </label>
       <label className="form-field">
         Status

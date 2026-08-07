@@ -51,7 +51,7 @@ export default function InvitePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="form-stack">
+      <form suppressHydrationWarning onSubmit={handleSubmit} className="form-stack">
         <div className="form-field">
           <label htmlFor="displayName" className="text-[13px] font-medium">{t("displayName")}</label>
           <input

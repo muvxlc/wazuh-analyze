@@ -70,7 +70,7 @@ export function IncidentDetailView({ initialIncident, canManage }: Props) {
                 onClick={() => void handleTransition(st)}
                 className="rounded-[6px] bg-[var(--color-canvas-soft)] px-3 py-1.5 text-xs font-semibold uppercase text-[var(--color-ink)] hover:bg-[var(--color-hairline)] disabled:opacity-50"
               >
-                {t(`status-${st}` as unknown as any)}
+                {t(`status-${st}` as any)}
               </button>
             ))}
           </div>

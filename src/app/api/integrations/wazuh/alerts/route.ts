@@ -7,7 +7,6 @@ import { ingestWazuhAlert } from "../../../../../server/ingestion/ingest";
 import { toErrorResponse } from "../../../../../server/http/error-response";
 import { getRequestMetadata } from "../../../../../server/http/request-metadata";
 import { AppError } from "../../../../../server/errors";
-import { runAlertAnalysis } from "../../../../../server/ai/analyze-service";
 import { dispatchNotificationBackground } from "../../../../../server/notifications/dispatcher";
 
 const MAX_BODY_SIZE = 1_048_576; // 1 MiB fallback; actual max from config
@@ -86,27 +85,10 @@ export async function POST(request: Request): Promise<Response> {
       replayWindowSeconds: config.webhookReplayWindowSeconds,
     });
 
-    if (result.inserted && config.socAutoAnalyze && result.alert.level >= config.socAutoAnalyzeMinLevel) {
-      const alertId = result.alert.id;
-      // ponytail: in-memory unmanaged background execution; migrate to dedicated background job queue if concurrency grows.
-      void (async () => {
-        const bg = createDatabase(config.databaseUrl);
-        try {
-            await runAlertAnalysis(
-              bg.db,
-              { userId: "system-auto", role: "admin", permissions: new Set(["alerts.analyze", "alerts.details"]) },
-              alertId,
-              { enrich: true },
-              metadata,
-              config,
-            );
-        } catch {
-          // Fire-and-forget: ignore execution failures
-        } finally {
-          await bg.pool.end();
-        }
-      })();
-    }
+    // Auto-analysis is owned by the background daemon (src/server/daemon), which
+    // sweeps for unanalyzed alerts above the severity threshold. Gated by the
+    // same `socAutoAnalyze` flag, resolved live from system_settings each tick.
+    // Keeping ingestion synchronous preserves webhook latency.
 
     if (result.inserted && result.alert.level >= 12) {
       dispatchNotificationBackground(

@@ -25,10 +25,10 @@ export function InviteDialog({ onCreated }: { onCreated?: (url: string) => void 
           });
       }}
     >
-      <label className="form-field">Email <input name="email" type="email" required /></label>
+      <label className="form-field">Email <input suppressHydrationWarning name="email" type="email" required /></label>
       <label className="form-field">Role <select name="role"><option value="user">User</option><option value="admin">Admin</option></select></label>
       <button type="submit">Create invite</button>
-      {url && <p className="invite-result" role="status">Copy invite URL: <input readOnly value={url} /></p>}
+      {url && <p className="invite-result" role="status">Copy invite URL: <input suppressHydrationWarning readOnly value={url} /></p>}
     </form>
   );
 }
