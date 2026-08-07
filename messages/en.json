@@ -36,6 +36,7 @@
   },
   "queues": {
     "title": "Queues",
+    "empty": "No queues registered.",
     "subtitle": "Monitor background job queues",
     "loading": "Loading queues…",
     "error": "Failed to load queues.",

@@ -79,4 +79,22 @@ describe("AI analysis contract", () => {
     expect(prompt).toContain("bash");
     expect(prompt).not.toContain("secret_value");
   });
+
+  it("strips verbose alert fields and bounds surviving oversized payloads", () => {
+    const prompt = buildAlertAnalysisPrompt({
+      ...alert,
+      rawPayload: {
+        rule: { id: "510", description: "Rootcheck" },
+        full_log: "sensitive verbose log ".repeat(2_000),
+        previous_output: "old output",
+        netstat: "network output",
+        useful: "kept ".repeat(4_000),
+      },
+    });
+    expect(prompt.length).toBeLessThan(10_000);
+    expect(prompt).toContain("[truncated]");
+    expect(prompt).not.toContain("sensitive verbose log");
+    expect(prompt).not.toContain("old output");
+    expect(prompt).not.toContain("network output");
+  });
 });

@@ -69,7 +69,7 @@ export function QueuesClient() {
       )}
 
       {status === "success" && Object.keys(queues).length === 0 && (
-        <p className="text-sm text-[var(--color-ink-muted)]" role="status">No queues registered.</p>
+        <p className="text-sm text-[var(--color-ink-muted)]" role="status">{t("empty")}</p>
       )}
 
       {status === "success" && Object.keys(queues).length > 0 && (
@@ -82,6 +82,10 @@ export function QueuesClient() {
             >
               <h2 className="mb-3 text-sm font-semibold text-[var(--color-ink)]">{name}</h2>
               <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-[var(--color-ink-muted)]">{t("queued")}</dt>
+                  <dd className="font-mono font-medium">{q.queuedCount}</dd>
+                </div>
                 <div className="flex justify-between">
                   <dt className="text-[var(--color-ink-muted)]">{t("ready")}</dt>
                   <dd className="font-mono font-medium">{q.readyCount}</dd>
