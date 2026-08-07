@@ -83,6 +83,40 @@ function boundedJson(value: unknown, maxLength: number, redact: (key: string, va
   return serialized.length > maxLength ? `${serialized.slice(0, maxLength)}...[truncated]` : serialized;
 }
 
+/**
+ * Extract balanced top-level JSON objects from free-text model output. Returns them in order of
+ * appearance so callers can pick the first one that validates. Handles models that echo input
+ * JSON before emitting their verdict.
+ */
+function extractJsonObjects(text: string): string[] {
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return objects;
+}
+
 export function buildAlertAnalysisPrompt(
   alert: Pick<AlertRecord, "agentId" | "agentName" | "groups" | "ruleId" | "ruleDescription" | "level" | "rawPayload">,
   context?: AnalysisContext,
@@ -128,21 +162,20 @@ export async function analyzeAlert(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const result = await provider.chat(SYSTEM_PROMPT, buildAlertAnalysisPrompt(alert, context), controller.signal);
-    // Models often wrap JSON in markdown fences or add commentary; extract the first {...} block.
+    // Models may echo alert JSON before returning verdict JSON; accept first schema-valid object.
     const stripped = result.replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
-    const match = stripped.match(/\{[\s\S]*\}/);
-    const jsonText = match ? match[0] : stripped;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(jsonText);
-    } catch {
-      throw new AppError("ai_response_invalid", 502, { reason: "non_json_response" });
+    const candidates = extractJsonObjects(stripped);
+    for (const candidate of candidates) {
+      try {
+        const verdict = aiVerdictSchema.safeParse(JSON.parse(candidate));
+        if (verdict.success) return verdict.data;
+      } catch {
+        // Ignore non-JSON objects in model commentary and continue scanning.
+      }
     }
-    const verdict = aiVerdictSchema.safeParse(parsed);
-    if (!verdict.success) {
-      throw new AppError("ai_response_invalid", 502, { reason: "schema_validation_failed" });
-    }
-    return verdict.data;
+    throw new AppError("ai_response_invalid", 502, {
+      reason: candidates.length > 0 ? "schema_validation_failed" : "non_json_response",
+    });
   } catch (err) {
     // AbortController timeout surfaces as AbortError — normalize to a typed error.
     if (err instanceof AppError) throw err;

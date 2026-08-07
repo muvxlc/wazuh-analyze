@@ -20,6 +20,15 @@ describe("AI analysis contract", () => {
     expect(aiAnalysisSchema.safeParse({}).success).toBe(false);
   });
 
+  it("accepts verdict after model echoes alert JSON", async () => {
+    const provider = {
+      chat: vi.fn().mockResolvedValue(
+        `${JSON.stringify({ id: "alert", rule: { id: "533" } })}\n${JSON.stringify({ summary: "Port changed", confidence: 0.8 })}`,
+      ),
+    };
+    await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({ summary: "Port changed", confidence: 0.8 });
+  });
+
   it("accepts a rich SOC verdict with optional legacy fields absent", async () => {
     const verdict = {
       summary: "Brute-force against sshd",
