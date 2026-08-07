@@ -44,3 +44,18 @@ Append-only log. After every task/checkpoint, document state + next step so any 
 **Baseline:** Unit 311 | Integration 105. Total 416 | 2 skipped. GREEN.
 **Trade-offs:** No live indexer to validate query shape — followed standard wazuh-states-vulnerabilities mapping (agent.id, vulnerability.*). Empty fallback when indexer unset keeps enrichment optional.
 **Next:** Task 4 (approval-gated actions).
+
+---
+## Task 4 — 2026-08-07 (approval-gated active-response actions)
+**Done:**
+1. Schema `actions` + `action_approvals`, migration `drizzle/0012_actions.sql`; states proposed/approved/executed/rejected.
+2. Permissions `actions.propose`, `actions.approve`, `actions.execute`; defaults: super_admin all, admin propose+approve.
+3. `action-service.ts`: propose, approve/reject, list, approved fetch, executed marking; audit events.
+4. `action-executor.ts`: calls Wazuh `PUT /active-response` via new `wazuhPut` helper.
+5. pg-boss `execute-action` queue; approval route enqueues only after approval; retry/backoff + singleton dedupe.
+6. APIs: `GET/POST /api/incidents/[id]/actions`, `PATCH /api/incidents/[id]/actions/[actionId]` with CSRF/auth/Zod.
+7. UI: `IncidentActions` cards in Incident Detail with Approve/Reject.
+
+**Baseline:** Unit 311 | Integration 105. Unit GREEN 311 passed. tsc GREEN. lint GREEN. Drizzle check GREEN.
+**Trade-offs:** Active-response payload maps `payload.agents` + `payload.arguments`; defaults agents to manager `000` if omitted. No live Wazuh execution test (requires authorized Wazuh instance).
+**Next:** Task 5 (scheduled reports + case management).

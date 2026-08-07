@@ -13,9 +13,12 @@ import { dispatchNotification } from "../notifications/dispatcher";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
 import { NotificationEvent } from "../notifications/render";
+import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
+import { executeAction } from "../actions/action-executor";
 
 export const QUEUE_ANALYZE_ALERT = "analyze-alert";
 export const QUEUE_DISPATCH_NOTIFICATION = "dispatch-notification";
+export const QUEUE_EXECUTE_ACTION = "execute-action";
 
 export const SYSTEM_ACTOR: ActorContext = {
   userId: null,
@@ -55,6 +58,29 @@ export async function registerQueues(
     }
   });
 
+  await pgBoss.work(QUEUE_EXECUTE_ACTION, async (jobs: JobBatch<{ actionId: string }>) => {
+    for (const job of jobs) {
+      const actionId = job.data.actionId;
+      console.log(`[Queue:action] Executing action ${actionId}`);
+      // Fetch action details directly to ensure it's still approved
+      const actions = await fetchApprovedActions(bg.db, 100);
+      const action = actions.find((a) => a.id === actionId);
+      if (!action) {
+        console.log(`[Queue:action] Action ${actionId} not found or not approved`);
+        continue;
+      }
+      try {
+        await executeAction(config, { command: action.command, payload: action.payload as Record<string, unknown> });
+        await markActionExecuted(bg.db, actionId, { success: true });
+      } catch (err) {
+        console.error(`[Queue:action] Action ${actionId} failed:`, err);
+        const error = err instanceof Error ? err.message : String(err);
+        await markActionExecuted(bg.db, actionId, { success: false, error });
+        throw err; // Trigger pg-boss retry
+      }
+    }
+  });
+
   console.log("[PgBoss] Queues registered");
 }
 
@@ -86,5 +112,20 @@ export async function enqueueNotification(
     retryDelay: 60,
     retryBackoff: true,
     expireInSeconds: 60 * 10,
+  });
+}
+
+export async function enqueueActionExecution(
+  actionId: string,
+): Promise<void> {
+  const config = loadConfig(process.env);
+  const pgBoss = await getPgBoss(config);
+  await pgBoss.send(QUEUE_EXECUTE_ACTION, { actionId }, {
+    singletonKey: `action:${actionId}`,
+    singletonSeconds: 60 * 5,
+    retryLimit: 3,
+    retryDelay: 10,
+    retryBackoff: true,
+    expireInSeconds: 60 * 5,
   });
 }

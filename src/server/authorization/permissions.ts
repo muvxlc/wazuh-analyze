@@ -33,6 +33,9 @@ export const PERMISSIONS = {
   superAdminsManage: "super_admins.manage",
   overridesManage: "overrides.manage",
   notificationsManage: "notifications.manage",
+  actionsPropose: "actions.propose",
+  actionsApprove: "actions.approve",
+  actionsExecute: "actions.execute",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

@@ -21,7 +21,10 @@ export type AuditAction =
   | "incident.mitigate"
   | "incident.resolve"
   | "incident.reopen"
-  | "notification.send";
+  | "notification.send"
+  | "action.propose"
+  | "action.approve"
+  | "action.execute";
 
 export interface AuditEventInput {
   actorUserId: string | null;
