@@ -76,8 +76,8 @@ export function AlertDrawer({ alert, isOpen, onClose }: AlertDrawerProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="alert-drawer-panel w-full bg-[var(--color-canvas)] p-4 shadow-[var(--shadow-modal)] md:w-[480px] md:ml-auto">
-        <div className="mb-4 flex items-center justify-between border-b border-[var(--color-hairline)] pb-2">
+      <div className="alert-drawer-panel w-full bg-[var(--color-canvas)] p-4 shadow-[var(--shadow-modal)] md:max-w-4xl md:h-auto md:max-h-[90vh] md:rounded-[8px] md:m-auto flex flex-col h-full">
+        <div className="mb-4 flex items-center justify-between border-b border-[var(--color-hairline)] pb-2 flex-none">
           <h2 className="m-0 text-base font-medium">{alert.ruleDescription}</h2>
           <button
             type="button"
@@ -87,40 +87,42 @@ export function AlertDrawer({ alert, isOpen, onClose }: AlertDrawerProps) {
             Close
           </button>
         </div>
-        <dl className="detail-list">
-          <div><dt>Agent</dt><dd>{alert.agentName ?? alert.agentId ?? "-"}</dd></div>
-          <div><dt>Rule ID</dt><dd>{alert.ruleId ?? "-"}</dd></div>
-          <div><dt>Severity</dt><dd>
-            <span
-              className="severity-badge"
-              style={{ backgroundColor: severityColor, color: "var(--color-on-dark)", padding: "2px 6px", borderRadius: "4px", fontSize: "12px" }}
-            >
-              {severityLabel(severity)} (level {alert.level})
-            </span>
-          </dd></div>
-          <div><dt>Status</dt><dd>{alert.status}</dd></div>
-          <div><dt>Groups</dt><dd>{alert.groups.join(", ") || "-"}</dd></div>
-          <div><dt>Tags</dt><dd>
-            {alert.tags.length === 0
-              ? <span className="muted">-</span>
-              : alert.tags.map((tag) => <span key={tag} className="group-badge">{tag}</span>)}
-          </dd></div>
-          <div><dt>Received</dt><dd>{formatDate(alert.ingestedAt)}</dd></div>
-        </dl>
-        {alert.timeline.length > 0 && (
-          <section className="panel detail-section mt-4" style={{ padding: "var(--space-lg)" }}>
-            <h3 className="m-0 mb-2 text-sm font-medium">Timeline</h3>
-            <ol style={{ margin: 0, paddingLeft: "var(--space-xl)" }}>
-              {alert.timeline.map((event) => (
-                <li key={event.id}>{event.toStatus} · {formatDate(event.occurredAt)}</li>
-              ))}
-            </ol>
+        <div className="flex-1 overflow-y-auto pr-2">
+          <dl className="detail-list">
+            <div><dt>Agent</dt><dd>{alert.agentName ?? alert.agentId ?? "-"}</dd></div>
+            <div><dt>Rule ID</dt><dd>{alert.ruleId ?? "-"}</dd></div>
+            <div><dt>Severity</dt><dd>
+              <span
+                className="severity-badge"
+                style={{ backgroundColor: severityColor, color: "var(--color-on-dark)", padding: "2px 6px", borderRadius: "4px", fontSize: "12px" }}
+              >
+                {severityLabel(severity)} (level {alert.level})
+              </span>
+            </dd></div>
+            <div><dt>Status</dt><dd>{alert.status}</dd></div>
+            <div><dt>Groups</dt><dd>{alert.groups.join(", ") || "-"}</dd></div>
+            <div><dt>Tags</dt><dd>
+              {alert.tags.length === 0
+                ? <span className="muted">-</span>
+                : alert.tags.map((tag) => <span key={tag} className="group-badge">{tag}</span>)}
+            </dd></div>
+            <div><dt>Received</dt><dd>{formatDate(alert.ingestedAt)}</dd></div>
+          </dl>
+          {alert.timeline.length > 0 && (
+            <section className="panel detail-section mt-4" style={{ padding: "var(--space-lg)" }}>
+              <h3 className="m-0 mb-2 text-sm font-medium">Timeline</h3>
+              <ol style={{ margin: 0, paddingLeft: "var(--space-xl)" }}>
+                {alert.timeline.map((event) => (
+                  <li key={event.id}>{event.toStatus} · {formatDate(event.occurredAt)}</li>
+                ))}
+              </ol>
+            </section>
+          )}
+          <section className="panel mt-4" style={{ padding: "var(--space-lg)" }}>
+            <h3 className="m-0 mb-2 text-sm font-medium">Raw payload</h3>
+            <RawJson value={alert.rawPayload} />
           </section>
-        )}
-        <section className="panel mt-4" style={{ padding: "var(--space-lg)" }}>
-          <h3 className="m-0 mb-2 text-sm font-medium">Raw payload</h3>
-          <RawJson value={alert.rawPayload} />
-        </section>
+        </div>
       </div>
     </div>
   );
