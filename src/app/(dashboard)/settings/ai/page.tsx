@@ -114,9 +114,9 @@ export default function SettingsAiPage() {
         provider: draft.provider,
         baseUrl: draft.baseUrl.trim(),
         model: draft.model.trim(),
-        apiKey: draft.apiKey ? draft.apiKey : null,
         timeoutMs: draft.timeoutMs,
         isDefault: draft.isDefault,
+        ...(draft.apiKey.trim() ? { apiKey: draft.apiKey.trim() } : {}),
       };
       const res = await fetch(
         draft.id ? `/api/ai/connections/${draft.id}` : "/api/ai/connections",
