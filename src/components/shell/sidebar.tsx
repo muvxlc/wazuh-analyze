@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Bell, Bot, LayoutDashboard, Network, Settings, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Bell, Bot, LayoutDashboard, Layers, Network, Settings, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { PERMISSIONS, type Permission } from "../../server/authorization/permissions";
 
@@ -34,6 +34,7 @@ const workspaceItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { key: "users", href: "/users", permission: PERMISSIONS.usersRead, icon: Users },
   { key: "roles", href: "/roles", permission: PERMISSIONS.rolesRead, icon: ShieldCheck },
+  { key: "queues", href: "/queues", permission: PERMISSIONS.queuesRead, icon: Layers },
 ];
 
 const settingsSubItems: SettingsSubItem[] = [
@@ -71,7 +72,7 @@ export function Sidebar({ permissions }: SidebarProps) {
           </Link>
         );
       })}
-      {(permissions.has(PERMISSIONS.usersRead) || permissions.has(PERMISSIONS.rolesRead) || permissions.has(PERMISSIONS.settingsManage)) && (
+      {(permissions.has(PERMISSIONS.usersRead) || permissions.has(PERMISSIONS.rolesRead) || permissions.has(PERMISSIONS.queuesRead) || permissions.has(PERMISSIONS.settingsManage)) && (
         <>
           <div className="my-2 border-t border-[var(--color-hairline)]" />
           <p className="mb-2 px-3 text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-ink-muted)]">Admin</p>

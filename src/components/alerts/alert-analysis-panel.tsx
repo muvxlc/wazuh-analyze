@@ -18,6 +18,8 @@ export function AlertAnalysisPanel({ alertId, canAnalyze }: AlertAnalysisPanelPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<AiVerdict | null>(null);
+  const [creatingCase, setCreatingCase] = useState(false);
+  const [caseMessage, setCaseMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
@@ -65,16 +67,55 @@ export function AlertAnalysisPanel({ alertId, canAnalyze }: AlertAnalysisPanelPr
     }
   };
 
+  const handleCreateCase = async () => {
+    if (!verdict) return;
+    setCreatingCase(true);
+    setCaseMessage(null);
+    try {
+      const res = await fetch(`/api/alerts/${alertId}/ir-case`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict }),
+      });
+      if (!res.ok) throw new Error("Failed to create IR Case");
+      const { data } = (await res.json()) as { data: { incidentId: string; incidentNumber: string } };
+      setCaseMessage(`Case created: ${data.incidentNumber}`);
+      setTimeout(() => {
+        window.location.href = `/incidents/${data.incidentId}`;
+      }, 1000);
+    } catch (err) {
+      setCaseMessage(err instanceof Error ? err.message : "Error creating case");
+    } finally {
+      setCreatingCase(false);
+    }
+  };
+
   return (
     <section className="panel detail-section alert-analysis-panel" data-testid="alert-analysis-panel">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <h2>AI SOC Analysis</h2>
-        {canAnalyze && (
-          <button onClick={handleAnalyze} disabled={loading} className="btn-primary" data-testid="analyze-btn">
-            {loading ? "Analyzing..." : "Analyze"}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {verdict && (
+            <button
+              onClick={handleCreateCase}
+              disabled={creatingCase}
+              className="btn-secondary"
+            >
+              {creatingCase ? "Creating..." : "Create IR Case"}
+            </button>
+          )}
+          {canAnalyze && (
+            <button onClick={handleAnalyze} disabled={loading} className="btn-primary" data-testid="analyze-btn">
+              {loading ? "Analyzing..." : "Analyze"}
+            </button>
+          )}
+        </div>
       </div>
+      {caseMessage && (
+        <div role="status" style={{ marginBottom: "0.5rem", fontSize: "0.875rem", color: caseMessage.startsWith("Error") ? "red" : "green" }}>
+          {caseMessage}
+        </div>
+      )}
       {error && (
         <div role="alert" className="alert-error" style={{ color: "red", marginBottom: "0.5rem" }}>
           {error}

@@ -20,6 +20,15 @@ describe("AI analysis contract", () => {
     expect(aiAnalysisSchema.safeParse({}).success).toBe(false);
   });
 
+  it("accepts verdict after model echoes alert JSON", async () => {
+    const provider = {
+      chat: vi.fn().mockResolvedValue(
+        `${JSON.stringify({ id: "alert", rule: { id: "533" } })}\n${JSON.stringify({ summary: "Port changed", confidence: 0.8 })}`,
+      ),
+    };
+    await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({ summary: "Port changed", confidence: 0.8 });
+  });
+
   it("accepts a rich SOC verdict with optional legacy fields absent", async () => {
     const verdict = {
       summary: "Brute-force against sshd",
@@ -78,5 +87,25 @@ describe("AI analysis contract", () => {
     expect(prompt).toContain("enrichment");
     expect(prompt).toContain("bash");
     expect(prompt).not.toContain("secret_value");
+  });
+
+  it("strips verbose alert fields and bounds surviving oversized payloads", () => {
+    const prompt = buildAlertAnalysisPrompt({
+      ...alert,
+      rawPayload: {
+        rule: { id: "510", description: "Rootcheck" },
+        full_log: "sensitive verbose log ".repeat(2_000),
+        previous_output: "old output",
+        previous_log: "netstat log dump",
+        netstat: "network output",
+        useful: "kept ".repeat(4_000),
+      },
+    });
+    expect(prompt.length).toBeLessThan(10_000);
+    expect(prompt).toContain("[truncated]");
+    expect(prompt).not.toContain("sensitive verbose log");
+    expect(prompt).not.toContain("old output");
+    expect(prompt).not.toContain("netstat log dump");
+    expect(prompt).not.toContain("network output");
   });
 });
