@@ -22,6 +22,8 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
   const [incident, setIncident] = useState<IncidentDetail>(initialIncident);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
 
   const availableTargets: IncidentStatus[] = Object.entries(MATRIX)
     .filter(([_, conf]) => conf.validFrom.includes(incident.status))
@@ -47,18 +49,54 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
     }
   };
 
+  const handleDraftIr = async () => {
+    if (drafting || !canManage) return;
+    setDrafting(true);
+    setDraftMessage(null);
+    try {
+      const res = await fetch(`/api/incidents/${incident.id}/draft`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to draft IR report");
+      const body = (await res.json()) as { data: IncidentDetail };
+      setIncident(body.data);
+      setDraftMessage("IR Case Drafted successfully");
+    } catch (err) {
+      setDraftMessage(err instanceof Error ? err.message : "Error drafting case");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   return (
     <article className="flex flex-col gap-6 p-6">
       <header className="flex flex-col gap-2 rounded-[8px] border border-[var(--color-hairline)] p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[var(--color-ink)]">{incident.title}</h1>
-          <span className="rounded-[6px] bg-[var(--color-canvas-soft)] px-3 py-1 text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
-            {incident.status}
-          </span>
+          <h1 className="text-xl font-bold text-[var(--color-ink)]">
+            {incident.incidentNumber ? `[${incident.incidentNumber}] ` : ""}{incident.title}
+          </h1>
+          <div className="flex items-center gap-3">
+            {!incident.incidentNumber && canManage && (
+              <button
+                type="button"
+                disabled={drafting}
+                onClick={() => void handleDraftIr()}
+                className="rounded-[6px] bg-[var(--color-primary)] px-3 py-1 text-xs font-semibold text-[var(--color-on-primary)] hover:opacity-90 disabled:opacity-50"
+              >
+                {drafting ? "Drafting..." : "Create IR Case (AI)"}
+              </button>
+            )}
+            <span className="rounded-[6px] bg-[var(--color-canvas-soft)] px-3 py-1 text-xs font-semibold uppercase text-[var(--color-ink-muted)]">
+              {incident.status}
+            </span>
+          </div>
         </div>
         <p className="text-sm text-[var(--color-ink-muted)]">
           {t("severity")}: <strong className="capitalize text-[var(--color-ink)]">{incident.severity}</strong> · {t("created")}: {new Date(incident.createdAt).toLocaleString()}
         </p>
+        {draftMessage && (
+          <p className={`text-xs mt-2 ${draftMessage.startsWith("Error") ? "text-[var(--color-danger-ink)]" : "text-green-600"}`}>
+            {draftMessage}
+          </p>
+        )}
       </header>
 
       {canManage && availableTargets.length > 0 && (

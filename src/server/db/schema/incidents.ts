@@ -24,6 +24,7 @@ export const incidents = pgTable(
   "incidents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    incidentNumber: text("incident_number").unique(),
     title: text("title").notNull(),
     description: text("description"),
     status: incidentStatusEnum("status").default("open").notNull(),
