@@ -93,3 +93,17 @@ Append-only log. After every task/checkpoint, document state + next step so any 
 
 **Current state:** All planned Phase 5 tasks and follow-up PRs #7-#9 merged into `main`. Current worktree has unrelated untracked `scripts/test-webhook.sh`; left untouched.
 **Next:** Run browser smoke test for `/alerts`: open drawer, analyze, inspect verdict, follow Full detail. Then decide whether bulk Analyze warrants sidebar route.
+
+## Queue Management Actions — 2026-08-08
+**Done:**
+1. Fixed pg-boss raw SQL query bug in `/api/queues` where Drizzle `{ rows: [...] }` was returned empty by strict array checking, bringing back correct UI metrics and rendering the latest jobs table.
+2. Implemented row-level queue job actions: `POST /api/queues/jobs/[id]/cancel` and `POST /api/queues/jobs/[id]/retry`.
+3. Created dedicated `GET /api/queues/jobs` listing endpoint (retaining paginated support) with filterable queue list logic.
+4. Added Retry/Cancel buttons in `queues-client.tsx` and pulsing progress visualizer for actively running queue tasks (from `queue_progress`). 
+5. Handled `pg-boss` unique cancelled vs failed states (`resume` vs `retry`). Updated translation keys for `th.json` and `en.json`.
+6. Removed invalid enum queries mapping like `expired` and `retrying` against `job_state`.
+
+### Metrics Accuracy — 2026-08-08 (follow-up)
+**Done:** Metrics card "Analyzed (24h)" now reads from `alert_analyses` table directly (`COUNT(*) WHERE created_at >= now()-24h`) instead of summing `completed` state across all pg-boss queues. Fixes inclusion of `dispatch-notification` completes inflating the analyze count. Success rate recomputed from true analyze count vs failed analyze jobs. `processed = analyzed + failed`.
+**Verified:** `npx tsc --noEmit` clean; `src/app/api/queues/route.test.ts` 4/4 pass.
+**DB ground truth (dev, 2026-08-08):** boss.job analyze-alert = 49 completed / 42 failed / 1 cancelled (total 92); alert_analyses = 58 total (54 in 24h); alerts pending = 0.

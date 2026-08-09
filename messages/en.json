@@ -68,6 +68,9 @@
     "phase": "Phase",
     "duration": "Duration",
     "retries": "Retries",
+    "actions": "Actions",
+    "retry": "Retry",
+    "cancel": "Cancel",
     "graphTitle": "Jobs over time"
   },
   "locale": {

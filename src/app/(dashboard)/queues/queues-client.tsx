@@ -75,6 +75,7 @@ export function QueuesClient({ canManage = false }: Props) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState<string | null>(null);
+  const [actionJob, setActionJob] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const poll = async () => {
@@ -115,6 +116,23 @@ export function QueuesClient({ canManage = false }: Props) {
       setBackfillMsg(t("error"));
     } finally {
       setBackfilling(false);
+    }
+  };
+
+  const handleJobAction = async (jobId: string, action: "retry" | "cancel") => {
+    if (actionJob) return;
+    setActionJob(jobId);
+    try {
+      const res = await fetch(`/api/queues/jobs/${jobId}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      void poll();
+    } catch {
+      alert(t("error"));
+    } finally {
+      setActionJob(null);
     }
   };
 
@@ -189,11 +207,16 @@ export function QueuesClient({ canManage = false }: Props) {
               <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">{t("runningNow")}</h2>
               <ul className="divide-y divide-[var(--color-hairline)] text-sm">
                 {data.running.map((r, i) => (
-                  <li key={`${r.queue_name}-${r.entity_id}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                    <span className="font-mono text-xs text-[var(--color-primary)]">{r.queue_name}</span>
-                    <span className="font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[280px]">{r.entity_id}</span>
-                    <span className="text-xs font-semibold uppercase text-[var(--color-ink)]">{r.phase}</span>
-                    <span className="text-xs text-[var(--color-ink-muted)]">{fmtDuration(r.updated_at, null)}</span>
+                  <li key={`${r.queue_name}-${r.entity_id}-${i}`} className="flex flex-col gap-2 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-xs text-[var(--color-primary)]">{r.queue_name}</span>
+                      <span className="font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[280px]" title={r.entity_id}>{r.entity_id}</span>
+                      <span className="text-xs font-semibold uppercase text-[var(--color-ink)]">{r.phase}</span>
+                      <span className="text-xs text-[var(--color-ink-muted)]">{fmtDuration(r.updated_at, null)}</span>
+                    </div>
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-hairline)]">
+                      <span className="block h-full w-1/3 animate-pulse rounded-full bg-[var(--color-primary)]" />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -256,10 +279,9 @@ export function QueuesClient({ canManage = false }: Props) {
             </div>
           </section>
 
-          {data.recentJobs.length > 0 && (
-            <section className="rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">{t("latestJobs")}</h2>
-              <div className="overflow-x-auto">
+          <section className="rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-5">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">{t("latestJobs")}</h2>
+            <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs uppercase text-[var(--color-ink-muted)]">
                     <tr>
@@ -268,29 +290,63 @@ export function QueuesClient({ canManage = false }: Props) {
                       <th className="py-2 pr-3">{t("status")}</th>
                       <th className="py-2 pr-3">{t("duration")}</th>
                       <th className="py-2 pr-3">{t("retries")}</th>
-                      <th className="py-2">Created</th>
+                      <th className="py-2 pr-3">Created</th>
+                      {canManage && <th className="py-2">{t("actions")}</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-hairline)]">
-                    {data.recentJobs.map((job) => (
-                      <tr key={job.id} className="align-top">
-                        <td className="py-2 pr-3 font-mono text-xs">{job.queue}</td>
-                        <td className="py-2 pr-3 font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[200px]">
-                          {job.entityId ?? "-"}
+                    {data.recentJobs.length === 0 ? (
+                      <tr>
+                        <td colSpan={canManage ? 7 : 6} className="py-4 text-center text-sm text-[var(--color-ink-muted)]">
+                          {t("empty")}
                         </td>
-                        <td className="py-2 pr-3">
-                          <StateBadge state={job.state} />
-                        </td>
-                        <td className="py-2 pr-3 text-xs">{fmtDuration(job.startedAt, job.completedAt)}</td>
-                        <td className="py-2 pr-3 text-xs">{job.retryCount}</td>
-                        <td className="py-2 text-xs text-[var(--color-ink-muted)]">{fmtTime(job.createdAt)}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      data.recentJobs.map((job) => (
+                        <tr key={job.id} className="align-top">
+                          <td className="py-2 pr-3 font-mono text-xs">{job.queue}</td>
+                          <td className="py-2 pr-3 font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[200px]" title={job.entityId ?? ""}>
+                            {job.entityId ?? "-"}
+                          </td>
+                          <td className="py-2 pr-3">
+                            <StateBadge state={job.state} />
+                          </td>
+                          <td className="py-2 pr-3 text-xs">{fmtDuration(job.startedAt, job.completedAt)}</td>
+                          <td className="py-2 pr-3 text-xs">{job.retryCount}</td>
+                          <td className="py-2 pr-3 text-xs text-[var(--color-ink-muted)]">{fmtTime(job.createdAt)}</td>
+                          {canManage && (
+                            <td className="py-2">
+                              <div className="flex gap-2">
+                                {["failed", "cancelled", "expired"].includes(job.state) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleJobAction(job.id, "retry")}
+                                    disabled={actionJob === job.id}
+                                    className="text-xs font-semibold text-[var(--color-primary)] hover:underline disabled:opacity-50"
+                                  >
+                                    {actionJob === job.id ? "…" : t("retry")}
+                                  </button>
+                                )}
+                                {["created", "retry", "active"].includes(job.state) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleJobAction(job.id, "cancel")}
+                                    disabled={actionJob === job.id}
+                                    className="text-xs font-semibold text-[var(--color-danger-ink)] hover:underline disabled:opacity-50"
+                                  >
+                                    {actionJob === job.id ? "…" : t("cancel")}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </section>
-          )}
         </>
       )}
     </div>

@@ -68,6 +68,9 @@
     "phase": "ขั้นตอน",
     "duration": "เวลา",
     "retries": "ลองใหม่",
+    "actions": "การจัดการ",
+    "retry": "ลองใหม่",
+    "cancel": "ยกเลิก",
     "graphTitle": "ปริมาณงานตามเวลา"
   },
   "locale": {
