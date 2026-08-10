@@ -14,6 +14,32 @@ export interface VulnRecord {
   published?: string;
 }
 
+/** Lightweight connectivity check for Wazuh Indexer. */
+export async function pingIndexer(config: WazuhConfig): Promise<boolean> {
+  if (!config.indexer) return false;
+  const url = new URL("/", config.indexer.url);
+  const dispatcher = config.allowInsecureTls
+    ? new Agent({ connect: { rejectUnauthorized: false } })
+    : config.caPath
+      ? new Agent({ connect: { ca: config.caPath } })
+      : undefined;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const res = await undiciFetch(url.toString(), {
+      method: "GET",
+      headers: { authorization: `Basic ${Buffer.from(`${config.indexer.username}:${config.indexer.password}`).toString("base64")}` },
+      signal: controller.signal,
+      dispatcher,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Fetch vulnerabilities from Wazuh indexer directly.
  * Assumes wazuh-states-vulnerabilities-* index.

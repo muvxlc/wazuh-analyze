@@ -6,12 +6,22 @@ import type { Database } from "../db/types";
 import type { ActorContext } from "../authorization/permissions";
 import { requirePermission } from "../authorization/require";
 import { getAgentSnapshot } from "../wazuh/agent-service";
-import type { WazuhClient } from "../wazuh/types";
+import type { WazuhClient, WazuhConfig } from "../wazuh/types";
+import { pingIndexer } from "../wazuh/indexer";
 
 export type WazuhConnectionStatus = "connected" | "disconnected";
 
 export interface DashboardSummary {
-  health: { status: "ok" | "degraded" | "down"; stale: boolean; syncedAt: Date; upstreamErrorCode: string | null; connectionStatus: WazuhConnectionStatus; reason: string };
+  health: {
+    status: "ok" | "degraded" | "down";
+    stale: boolean;
+    syncedAt: Date;
+    upstreamErrorCode: string | null;
+    connectionStatus: WazuhConnectionStatus;
+    reason: string;
+    indexerStatus: WazuhConnectionStatus;
+    indexerReason: string;
+  };
   agentStatus: Record<string, number>;
   alertSeverity: Record<string, number>;
   workflows: Record<string, number>;
@@ -20,7 +30,7 @@ export interface DashboardSummary {
 export async function getDashboardSummary(
   db: Database,
   actor: ActorContext,
-  dependencies: { wazuh?: WazuhClient; now?: Date } = {},
+  dependencies: { wazuh?: WazuhClient; wazuhConfig?: WazuhConfig; now?: Date } = {},
 ): Promise<DashboardSummary> {
   requirePermission(actor.permissions, "dashboard.read");
   const now = dependencies.now ?? new Date();
@@ -44,6 +54,20 @@ export async function getDashboardSummary(
   }, {});
   const connectionStatus: WazuhConnectionStatus = snapshot.stale ? "disconnected" : "connected";
   const reason = snapshot.stale ? "Wazuh API unavailable" : "Wazuh API reachable";
+
+  let indexerStatus: WazuhConnectionStatus = "connected";
+  let indexerReason = "Indexer reachable";
+  if (dependencies.wazuhConfig) {
+    if (!dependencies.wazuhConfig.indexer) {
+      indexerStatus = "disconnected";
+      indexerReason = "Indexer not configured";
+    } else {
+      const ok = await pingIndexer(dependencies.wazuhConfig).catch(() => false);
+      indexerStatus = ok ? "connected" : "disconnected";
+      indexerReason = ok ? "Indexer reachable" : "Indexer unreachable";
+    }
+  }
+
   const alertSeverity = Object.fromEntries(severityRows.map((row) => [String(row.level), Number(row.total)]));
   const workflows = Object.fromEntries(workflowRows.map((row) => [row.status, Number(row.total)]));
 
@@ -55,6 +79,8 @@ export async function getDashboardSummary(
       upstreamErrorCode: snapshot.upstreamErrorCode,
       connectionStatus,
       reason,
+      indexerStatus,
+      indexerReason,
     },
     agentStatus,
     alertSeverity,
