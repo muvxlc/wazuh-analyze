@@ -16,6 +16,8 @@ const SECRET_KEYS: ReadonlySet<SystemSettingKey> = new Set<SystemSettingKey>([
   "wazuhUsername",
   "abuseipdbKey",
   "otxKey",
+  "wazuhIndexerUsername",
+  "wazuhIndexerPassword",
 ]);
 
 export function isSecretKey(key: SystemSettingKey): boolean {
@@ -38,6 +40,9 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "otxKey",
   "tiMinLevel",
   "tiCacheTtlDays",
+  "wazuhIndexerUrl",
+  "wazuhIndexerUsername",
+  "wazuhIndexerPassword",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {
@@ -89,6 +94,9 @@ export async function resolveEffectiveConfig(
   const wazuhPassword = eff("wazuhPassword", config.wazuh.password);
   const wazuhCaPath = eff("wazuhCaPath", config.wazuh.caPath ?? undefined);
   const wazuhAllowInsecure = eff("wazuhAllowInsecureTls", String(config.wazuh.allowInsecureTls));
+  const wazuhIndexerUrl = eff("wazuhIndexerUrl", config.wazuh.indexer?.url.toString());
+  const wazuhIndexerUsername = eff("wazuhIndexerUsername", config.wazuh.indexer?.username);
+  const wazuhIndexerPassword = eff("wazuhIndexerPassword", config.wazuh.indexer?.password);
   const retention = eff("alertRetentionDays", String(config.alertRetentionDays));
   const batch = eff("maintenanceBatchSize", String(config.maintenanceBatchSize));
   const socAuto = eff("socAutoAnalyze", String(config.socAutoAnalyze));
@@ -132,6 +140,13 @@ export async function resolveEffectiveConfig(
       password: wazuhPassword.value ?? config.wazuh.password,
       caPath: wazuhCaPath.value !== null && wazuhCaPath.value !== "" ? wazuhCaPath.value : null,
       allowInsecureTls: effectiveAllowInsecureTls,
+      indexer: wazuhIndexerUrl.value
+        ? {
+            url: new URL(wazuhIndexerUrl.value),
+            username: wazuhIndexerUsername.value ?? config.wazuh.indexer?.username ?? wazuhUsername.value ?? config.wazuh.username,
+            password: wazuhIndexerPassword.value ?? config.wazuh.indexer?.password ?? wazuhPassword.value ?? config.wazuh.password,
+          }
+        : config.wazuh.indexer,
     },
   };
 }
@@ -153,6 +168,9 @@ export interface SettingsView {
   otxKeySet: boolean;
   tiMinLevel: number;
   tiCacheTtlDays: number;
+  wazuhIndexerUrl: string;
+  wazuhIndexerUsernameSet: boolean;
+  wazuhIndexerPasswordSet: boolean;
   /** Per-key source flags: true = value came from DB row. */
   sources: Partial<Record<SystemSettingKey, boolean>>;
 }
@@ -183,6 +201,9 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
     otxKeySet: (effective.ti?.otxKey ?? "").length > 0,
     tiMinLevel: effective.ti?.minLevel ?? 7,
     tiCacheTtlDays: effective.ti?.cacheTtlDays ?? 30,
+    wazuhIndexerUrl: effective.wazuh.indexer?.url.origin ?? "",
+    wazuhIndexerUsernameSet: (effective.wazuh.indexer?.username ?? "").length > 0,
+    wazuhIndexerPasswordSet: (effective.wazuh.indexer?.password ?? "").length > 0,
     sources: {
       wazuhApiUrl: src("wazuhApiUrl"),
       wazuhUsername: src("wazuhUsername"),
@@ -198,6 +219,9 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       otxKey: src("otxKey"),
       tiMinLevel: src("tiMinLevel"),
       tiCacheTtlDays: src("tiCacheTtlDays"),
+      wazuhIndexerUrl: src("wazuhIndexerUrl"),
+      wazuhIndexerUsername: src("wazuhIndexerUsername"),
+      wazuhIndexerPassword: src("wazuhIndexerPassword"),
     },
   };
 }

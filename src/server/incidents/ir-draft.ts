@@ -11,6 +11,7 @@ import type { AiVerdict } from "../ai/analysis";
 import type { AlertRecord } from "../alerts/types";
 import type { RequestMetadata } from "../http/request-metadata";
 import { proposeAction } from "../actions/action-service";
+import { enqueueNotification } from "../daemon/queue";
 
 /**
  * Generate a sequential IR case number `IR<YYMMDD><NNN>` scoped per UTC day.
@@ -43,6 +44,7 @@ interface IncidentDraftFields {
   protocol?: string;
   agentName?: string;
   deviceName?: string;
+  eventSubtype?: string;
 }
 
 function extractFields(alert: Pick<AlertRecord, "rawPayload" | "agentName">): IncidentDraftFields {
@@ -58,6 +60,7 @@ function extractFields(alert: Pick<AlertRecord, "rawPayload" | "agentName">): In
     protocol: (data?.protocol as string) ?? (decoder?.proto as string) ?? undefined,
     agentName: alert.agentName ?? undefined,
     deviceName: (payload.location as string) ?? undefined,
+    eventSubtype: (data?.action as string) ?? (data?.status as string) ?? undefined,
   };
 }
 
@@ -70,6 +73,8 @@ function buildDraftDescription(alert: AlertRecord, verdict: AiVerdict): string {
   lines.push(`Protocol: ${f.protocol ?? "-"}`);
   lines.push(`Agent: ${f.agentName ?? "-"}`);
   lines.push(`Device: ${f.deviceName ?? "-"}`);
+  lines.push(`Event Subtype: ${f.eventSubtype ?? "-"}`);
+  lines.push(`Log Source: ${f.deviceName ?? f.agentName ?? "-"}`);
 
   lines.push("", "##Threat Information##");
   lines.push(`AI Summary: ${verdict.summary}`);
@@ -154,6 +159,14 @@ export async function draftIncidentFromAlert(
 
     return { incidentId: incident.id, incidentNumber: incident.incidentNumber ?? incidentNumber };
   });
+
+  void enqueueNotification({
+    type: "incident.created",
+    targetId: result.incidentId,
+    severity: verdict.severity ?? "medium",
+    title: verdict.summary.slice(0, 200),
+    summary: `Auto-drafted IR case ${result.incidentNumber} from alert ${alert.ruleId ?? alert.id}`,
+  }).catch(console.error);
 
   // Auto-propose isolation if the verdict is critical/high and action permissions exist.
   // Using a try-catch so permission errors don't fail the incident creation.

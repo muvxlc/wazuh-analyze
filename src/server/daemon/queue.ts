@@ -9,6 +9,8 @@ import { ActorContext } from "../authorization/permissions";
 import { resolveEffectiveConfig } from "../settings/service";
 import { runAlertAnalysis } from "../ai/analyze-service";
 import { correlateAlert } from "../incidents/correlator";
+import { draftIncidentFromAlert } from "../incidents/ir-draft";
+import { getAlertDetail } from "../alerts/query";
 import { dispatchNotification } from "../notifications/dispatcher";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
@@ -58,8 +60,25 @@ export async function registerQueues(
       };
       try {
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "loading", { jobId: job.id });
-        await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { enrich: true }, metadata, effConfig);
-        await correlateAlert(bg.db, alertId);
+        const analysis = await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { enrich: true }, metadata, effConfig);
+        const v = analysis.verdict;
+
+        let autoDrafted = false;
+        const enrichment = analysis.enrichment;
+        const tiBad = enrichment?.iocLookups.some((ti) =>
+          (ti.abuseScore ?? 0) >= 80 || /malware|c&c|botnet/i.test(ti.abuseCategory ?? ""),
+        ) ?? false;
+        const freqCount = enrichment?.networkFrequency?.count ?? 0;
+        if (v.confidence >= 0.85 && !v.likelyFalsePositive && (tiBad || freqCount > 10)) {
+          console.log(`[Queue:analyze] Alert ${alertId} passed conservative Auto-IR gate (conf=${v.confidence}, ti=${tiBad}, freq=${freqCount}). Drafting incident.`);
+          const alert = await getAlertDetail(bg.db, SYSTEM_ACTOR, alertId);
+          await draftIncidentFromAlert(bg.db, SYSTEM_ACTOR, alert, v, metadata);
+          autoDrafted = true;
+        }
+
+        if (!autoDrafted) {
+          await correlateAlert(bg.db, alertId);
+        }
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "completed", { jobId: job.id });
       } catch (err) {
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "failed", { jobId: job.id, detail: err instanceof Error ? err.message : String(err) });

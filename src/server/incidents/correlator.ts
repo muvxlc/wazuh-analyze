@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../db/types";
 import * as schema from "../db/schema";
 import { enqueueNotification } from "../daemon/queue";
@@ -47,6 +47,18 @@ export async function correlateAlert(
       .orderBy(desc(schema.incidents.createdAt))
       .limit(1)
       .for("update");
+
+    // Full IR cases take precedence over lightweight correlation for this alert.
+    const [fullCase] = await tx
+      .select({ id: schema.incidents.id })
+      .from(schema.incidents)
+      .innerJoin(schema.incidentAlerts, eq(schema.incidentAlerts.incidentId, schema.incidents.id))
+      .where(and(
+        eq(schema.incidentAlerts.alertId, alert.id),
+        isNotNull(schema.incidents.incidentNumber),
+      ))
+      .limit(1);
+    if (fullCase) return { incidentId: fullCase.id, created: false };
 
     // Anchor incident timestamps on the triggering alert's wazuh timestamp so the 60min
     // window comparison stays on one time base (also correct for backfilled alerts).

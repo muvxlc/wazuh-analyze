@@ -11,7 +11,7 @@ import { getAlertDetail } from "../alerts/query";
 import { createChatProvider, resolveAiConnection, type ChatProvider } from "./connections";
 import { analyzeAlert, type AiVerdict } from "./analysis";
 import { buildAnalysisContext, type AnalysisContext, type ContextDeps } from "../enrichment/context-builder";
-import { buildTiProviders, globalTiCache, type TiProvider } from "../ti/provider";
+import { buildTiProviders, globalTiCache, type TiProvider, type TiVerdict } from "../ti/provider";
 import { writeAuditEvent } from "../audit/audit-service";
 import { enqueueNotification } from "../daemon/queue";
 import type { RequestMetadata } from "../http/request-metadata";
@@ -39,7 +39,7 @@ export async function runAlertAnalysis(
   metadata: RequestMetadata,
   config: AnalyzeConfig,
   deps: AnalyzeDependencies = {},
-): Promise<{ id: string; alertId: string; verdict: AiVerdict }> {
+): Promise<{ id: string; alertId: string; verdict: AiVerdict; enrichment?: { iocLookups: TiVerdict[]; networkFrequency?: { count: number; windowMinutes: number } | null } }> {
   requirePermission(actor.permissions, "alerts.analyze");
 
   const encryptionKey =
@@ -123,7 +123,19 @@ export async function runAlertAnalysis(
     ).catch(console.error);
   }
 
-  return { id: row.id, alertId, verdict };
+  return {
+    id: row.id,
+    alertId,
+    verdict,
+    ...(context && (context.iocLookups.length > 0 || context.sections.networkFrequency)
+      ? {
+          enrichment: {
+            iocLookups: context.iocLookups,
+            networkFrequency: (context.sections.networkFrequency as { count: number; windowMinutes: number } | undefined) ?? null,
+          },
+        }
+      : {}),
+  };
 }
 
 /** Builds enrichment dependencies from config. Legacy string-key callers get no deps. */

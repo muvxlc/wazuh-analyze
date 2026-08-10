@@ -13,4 +13,7 @@ export type SystemSettingKey =
   | "abuseipdbKey"
   | "otxKey"
   | "tiMinLevel"
-  | "tiCacheTtlDays";
+  | "tiCacheTtlDays"
+  | "wazuhIndexerUrl"
+  | "wazuhIndexerUsername"
+  | "wazuhIndexerPassword";

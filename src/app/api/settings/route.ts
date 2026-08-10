@@ -39,6 +39,9 @@ const patchSchema = z
     otxKey: z.string().max(500).optional(),
     tiMinLevel: z.number().int().min(1).max(15).optional(),
     tiCacheTtlDays: z.number().int().min(1).max(365).optional(),
+    wazuhIndexerUrl: z.string().url().optional(),
+    wazuhIndexerUsername: z.string().min(1).max(200).optional(),
+    wazuhIndexerPassword: z.string().min(1).max(500).optional(),
   })
   .strict();
 
@@ -57,6 +60,9 @@ const BODY_TO_KEY: Record<string, SystemSettingKey> = {
   otxKey: "otxKey",
   tiMinLevel: "tiMinLevel",
   tiCacheTtlDays: "tiCacheTtlDays",
+  wazuhIndexerUrl: "wazuhIndexerUrl",
+  wazuhIndexerUsername: "wazuhIndexerUsername",
+  wazuhIndexerPassword: "wazuhIndexerPassword",
 };
 
 export async function GET(request: Request): Promise<Response> {
