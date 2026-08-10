@@ -74,6 +74,14 @@ describe("threat intel layer", () => {
     );
   });
 
+  it("refreshAbuseIpDbBlacklist returns 0 on network failure", async () => {
+    const cache = new InMemoryTiCache();
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("fetch failed"));
+    await expect(refreshAbuseIpDbBlacklist("secret", cache, {
+      fetchFn: fetchMock as unknown as typeof fetch,
+    })).rejects.toThrow("fetch failed");
+  });
+
   it("otx extracts pulse count", async () => {
     const otx = createOtxProvider();
     const fetchMock = vi.fn().mockResolvedValueOnce(

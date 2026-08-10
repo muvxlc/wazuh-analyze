@@ -69,10 +69,18 @@ export async function refreshAbuseIpDbBlacklist(
   url.searchParams.set("limit", String(options.limit ?? 10_000));
   url.searchParams.set("confidenceMinimum", String(options.confidenceMinimum ?? 75));
 
-  const res = await fetchFn(url.toString(), {
-    method: "GET",
-    headers: { Key: apiKey, Accept: "application/json" },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  let res;
+  try {
+    res = await fetchFn(url.toString(), {
+      method: "GET",
+      headers: { Key: apiKey, Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) return 0;
   const body = (await res.json()) as {

@@ -19,12 +19,15 @@ import { fetchApprovedActions, markActionExecuted } from "../actions/action-serv
 import { executeAction } from "../actions/action-executor";
 import { runWeeklyReport } from "../reports/report-job";
 import { setQueuePhase } from "./progress";
+import { refreshAbuseIpDbBlacklist } from "../ti/abuseipdb";
+import { DbTiCache } from "../ti/store";
 
 export const QUEUE_WEEKLY_REPORT = "weekly-soc-report";
 
 export const QUEUE_ANALYZE_ALERT = "analyze-alert";
 export const QUEUE_DISPATCH_NOTIFICATION = "dispatch-notification";
 export const QUEUE_EXECUTE_ACTION = "execute-action";
+export const QUEUE_SYNC_ABUSEIPDB = "sync-abuseipdb";
 
 export const SYSTEM_ACTOR: ActorContext = {
   userId: null,
@@ -46,6 +49,7 @@ export async function registerQueues(
   await pgBoss.createQueue(QUEUE_DISPATCH_NOTIFICATION).catch(() => {});
   await pgBoss.createQueue(QUEUE_EXECUTE_ACTION).catch(() => {});
   await pgBoss.createQueue(QUEUE_WEEKLY_REPORT).catch(() => {});
+  await pgBoss.createQueue(QUEUE_SYNC_ABUSEIPDB).catch(() => {});
 
   // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
   await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string }>) => {
@@ -121,6 +125,23 @@ export async function registerQueues(
   await pgBoss.work(QUEUE_WEEKLY_REPORT, async () => {
     console.log("[Queue:report] Generating weekly report");
     await runWeeklyReport(bg.db);
+  });
+
+  await pgBoss.work(QUEUE_SYNC_ABUSEIPDB, async () => {
+    const effConfig = await resolveEffectiveConfig(bg.db, config);
+    const key = effConfig.ti?.abuseipdbKey;
+    if (!key) {
+      console.log("[Queue:sync-abuseipdb] No AbuseIPDB API key configured; skipping");
+      return;
+    }
+    console.log("[Queue:sync-abuseipdb] Syncing AbuseIPDB blacklist");
+    const cache = new DbTiCache(bg.db);
+    try {
+      const count = await refreshAbuseIpDbBlacklist(key, cache);
+      console.log(`[Queue:sync-abuseipdb] Synced ${count} IPs`);
+    } catch (err) {
+      console.error("[Queue:sync-abuseipdb] Sync failed:", err instanceof Error ? err.message : String(err));
+    }
   });
 
   console.log("[PgBoss] Queues registered");
