@@ -22,17 +22,19 @@ export async function GET(request: Request): Promise<Response> {
     const effective = await resolveEffectiveConfig(db, config);
     const client = createWazuhClient(effective.wazuh);
     const snapshot = await getAgentSnapshot(db, client);
-    const rows = (await Promise.all(snapshot.agents.map(async (agent) =>
-      (await fetchAgentVulnerabilities(effective.wazuh, agent.id, 20)).map((v) => ({
-        ...v,
-        agentId: agent.id,
-        agentName: agent.name,
-      })),
-    ))).flat();
-
+    const results = await Promise.all(snapshot.agents.map(async (agent) => {
+      try {
+        const vulnerabilities = await fetchAgentVulnerabilities(effective.wazuh, agent.id, 20);
+        return { vulnerabilities: vulnerabilities.map((v) => ({ ...v, agentId: agent.id, agentName: agent.name })), error: false };
+      } catch (error) {
+        console.error(`[Vulnerabilities] Indexer fetch failed for agent ${agent.id}:`, error);
+        return { vulnerabilities: [], error: true };
+      }
+    }));
+    const rows = results.flatMap((result) => result.vulnerabilities);
     rows.sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0));
     return Response.json(
-      { data: { vulnerabilities: rows, agents: snapshot.agents, indexerConfigured: Boolean(effective.wazuh.indexer), stale: snapshot.stale } },
+      { data: { vulnerabilities: rows, agents: snapshot.agents, indexerConfigured: Boolean(effective.wazuh.indexer), indexerError: results.some((result) => result.error), stale: snapshot.stale } },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {

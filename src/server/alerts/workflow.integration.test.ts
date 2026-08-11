@@ -46,6 +46,7 @@ describe("transitionAlert integration", () => {
   let actorId: string;
 
   beforeAll(async () => {
+    await resetTestDatabase(pool);
     actorId = await insertActor();
   });
 

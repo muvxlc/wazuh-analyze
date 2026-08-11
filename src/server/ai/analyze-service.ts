@@ -11,7 +11,8 @@ import { getAlertDetail } from "../alerts/query";
 import { createChatProvider, resolveAiConnection, type ChatProvider } from "./connections";
 import { analyzeAlert, type AiVerdict } from "./analysis";
 import { buildAnalysisContext, type AnalysisContext, type ContextDeps } from "../enrichment/context-builder";
-import { buildTiProviders, globalTiCache, type TiProvider, type TiVerdict } from "../ti/provider";
+import { buildTiProviders, type TiProvider, type TiVerdict } from "../ti/provider";
+import { DbTiCache } from "../ti/store";
 import { writeAuditEvent } from "../audit/audit-service";
 import { enqueueNotification } from "../daemon/queue";
 import type { RequestMetadata } from "../http/request-metadata";
@@ -62,7 +63,7 @@ export async function runAlertAnalysis(
   let context: AnalysisContext | undefined;
   if (options.enrich !== false) {
     try {
-      const contextDeps = deps.contextDeps ?? (await buildContextDeps(config));
+      const contextDeps = deps.contextDeps ?? (await buildContextDeps(db, config));
       context = await buildAnalysisContext(
         {
           alertId,
@@ -139,7 +140,7 @@ export async function runAlertAnalysis(
 }
 
 /** Builds enrichment dependencies from config. Legacy string-key callers get no deps. */
-async function buildContextDeps(config: AnalyzeConfig): Promise<ContextDeps> {
+async function buildContextDeps(db: Database, config: AnalyzeConfig): Promise<ContextDeps> {
   if (typeof config === "string") return {};
   const wazuh: WazuhConfig | undefined = config.wazuh;
   const tiSlice = config.ti;
@@ -148,7 +149,7 @@ async function buildContextDeps(config: AnalyzeConfig): Promise<ContextDeps> {
   if (tiSlice) {
     const providers: TiProvider[] = await buildTiProviders(tiSlice);
     if (providers.length > 0) {
-      deps.ti = { providers, cache: globalTiCache };
+      deps.ti = { providers, cache: new DbTiCache(db) };
     }
   }
   return deps;

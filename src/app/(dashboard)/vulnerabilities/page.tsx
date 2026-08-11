@@ -26,6 +26,7 @@ interface PageState {
   vulnerabilities: VulnItem[];
   agents: AgentInfo[];
   indexerConfigured: boolean;
+  indexerError?: boolean;
   stale: boolean;
   upstreamErrorCode?: string;
 }
@@ -122,6 +123,12 @@ export default function VulnerabilitiesPage() {
       {data?.stale && (
         <div className="bg-yellow-50 text-yellow-800 p-3 rounded-md text-sm flex items-center gap-2">
           <AlertTriangle size={16} /> {t("stale-data")}
+        </div>
+      )}
+
+      {data?.indexerError && (
+        <div className="bg-red-50 text-red-800 p-3 rounded-md text-sm flex items-center gap-2">
+          <ShieldAlert size={16} /> Indexer connection failed or timed out. Check connectivity and credentials.
         </div>
       )}
 

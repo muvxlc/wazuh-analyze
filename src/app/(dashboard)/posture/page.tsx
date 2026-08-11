@@ -25,7 +25,46 @@ function itemLabel(item: unknown): string {
   return String(row.name ?? row.title ?? row.file ?? row.path ?? row.check ?? row.description ?? row.id ?? "-");
 }
 
-function ItemList({ value, empty }: { value: unknown; empty: string }) {
+function rowsCount(value: unknown): number {
+  return items(value).length;
+}
+
+function countFrom(value: unknown): number | null {
+  if (typeof value !== "object" || value === null) return null;
+  const data = (value as { data?: { total_affected_items?: unknown } }).data;
+  const n = data?.total_affected_items;
+  return typeof n === "number" ? n : null;
+}
+
+function trimmedJson(value: unknown, max = 40): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value.length > max ? value.slice(0, max) + "…" : value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value).slice(0, max) + (JSON.stringify(value).length > max ? "…" : "");
+}
+
+function FieldDetails({ row, fields }: { row: Record<string, unknown>; fields: string[] }) {
+  const pairs = fields
+    .filter((k) => row[k] !== undefined && row[k] !== null && row[k] !== "")
+    .map((k) => [k, row[k]] as [string, unknown]);
+  if (pairs.length === 0) return <span className="text-[var(--color-ink-muted)]">{trimmedJson(row)}</span>;
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--color-ink-muted)]">
+      {pairs.map(([k, v]) => (
+        <span key={k} className="truncate">
+          <span className="font-medium text-[var(--color-ink)]">{k}:</span>{" "}
+          <span className="truncate">{trimmedJson(v)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const SCA_FIELDS = ["policy_id", "check", "rule", "description", "reason", "condition"];
+const SYSCHECK_FIELDS = ["path", "filename", "event", "diff", "hash", "report_change"];
+const ROOTCHECK_FIELDS = ["reason", "check", "description"];
+
+function ItemList({ value, empty, fields }: { value: unknown; empty: string; fields: string[] }) {
   const rows = items(value);
   if (rows.length === 0) return <p className="p-4 text-sm text-[var(--color-ink-muted)]">{empty}</p>;
   return (
@@ -33,7 +72,11 @@ function ItemList({ value, empty }: { value: unknown; empty: string }) {
       {rows.map((row, i) => (
         <li key={i} className="p-3 text-sm">
           <p className="font-medium truncate">{itemLabel(row)}</p>
-          <p className="mt-1 text-xs text-[var(--color-ink-muted)] line-clamp-2">{typeof row === "object" ? JSON.stringify(row) : String(row)}</p>
+          {typeof row === "object" && row !== null ? (
+            <FieldDetails row={row as Record<string, unknown>} fields={fields} />
+          ) : (
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{String(row)}</p>
+          )}
         </li>
       ))}
     </ul>
@@ -98,9 +141,18 @@ export default function PosturePage() {
       {error && <p className="status-error p-3">{error}</p>}
       {data && (
         <div className="grid gap-6 lg:grid-cols-3">
-          <section className="panel overflow-hidden"><h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><Settings2 size={18} />{t("sca")}</h2><ItemList value={data.sca} empty={t("no-data")} /></section>
-          <section className="panel overflow-hidden"><h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><FileWarning size={18} />{t("fim")}</h2><ItemList value={data.syscheck} empty={t("no-data")} /></section>
-          <section className="panel overflow-hidden"><h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><Bug size={18} />{t("rootcheck")}</h2><ItemList value={data.rootcheck} empty={t("no-data")} /></section>
+          <section className="panel overflow-hidden">
+            <h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><Settings2 size={18} />{t("sca")}<span className="text-xs font-normal bg-[var(--color-canvas-soft)] border border-[var(--color-border)] px-2 py-0.5 rounded-full">{countFrom(data.sca) ?? rowsCount(data.sca)}</span></h2>
+            <ItemList value={data.sca} empty={t("no-data")} fields={SCA_FIELDS} />
+          </section>
+          <section className="panel overflow-hidden">
+            <h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><FileWarning size={18} />{t("fim")}<span className="text-xs font-normal bg-[var(--color-canvas-soft)] border border-[var(--color-border)] px-2 py-0.5 rounded-full">{countFrom(data.syscheck) ?? rowsCount(data.syscheck)}</span></h2>
+            <ItemList value={data.syscheck} empty={t("no-data")} fields={SYSCHECK_FIELDS} />
+          </section>
+          <section className="panel overflow-hidden">
+            <h2 className="flex items-center gap-2 border-b border-[var(--color-border)] p-4 text-base font-semibold"><Bug size={18} />{t("rootcheck")}<span className="text-xs font-normal bg-[var(--color-canvas-soft)] border border-[var(--color-border)] px-2 py-0.5 rounded-full">{countFrom(data.rootcheck) ?? rowsCount(data.rootcheck)}</span></h2>
+            <ItemList value={data.rootcheck} empty={t("no-data")} fields={ROOTCHECK_FIELDS} />
+          </section>
         </div>
       )}
       {loading && <p className="text-sm text-[var(--color-ink-muted)] flex items-center gap-2" role="status"><RefreshCw className="animate-spin" size={16} />{t("loading")}</p>}

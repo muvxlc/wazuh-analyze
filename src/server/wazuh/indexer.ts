@@ -115,8 +115,11 @@ export async function fetchAgentVulnerabilities(
       };
     });
   } catch (err) {
-    console.error(`[Indexer] Fetch failed for agent ${agentId}:`, err);
-    return []; // Return empty on fetch failure to prevent AI enrichment crash
+    if (err instanceof WazuhError) throw err;
+    // Non-Wazuh errors (network/timeout/abort) — surface as a typed indexer error
+    // rather than a silent empty list, so callers can distinguish "no data" from
+    // "could not reach indexer". AI enrichment callers should catch and ignore.
+    throw new WazuhError("wazuh_indexer_error", 0, `Indexer unreachable for agent ${agentId}: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
     clearTimeout(timer);
   }

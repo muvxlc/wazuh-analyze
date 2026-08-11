@@ -41,6 +41,39 @@ function itemLabel(item: unknown): string {
   return String(row.name ?? row.title ?? row.cmd ?? row.file ?? row.description ?? row.id ?? "-");
 }
 
+function trimmedJson(value: unknown, max = 40): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value.length > max ? value.slice(0, max) + "…" : value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value).slice(0, max) + (JSON.stringify(value).length > max ? "…" : "");
+}
+
+function FieldDetails({ row, fields }: { row: Record<string, unknown>; fields: string[] }) {
+  const pairs = fields
+    .filter((k) => row[k] !== undefined && row[k] !== null && row[k] !== "")
+    .map((k) => [k, row[k]] as [string, unknown]);
+  if (pairs.length === 0) return <span className="text-[var(--color-ink-muted)]">{trimmedJson(row)}</span>;
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--color-ink-muted)]">
+      {pairs.map(([k, v]) => (
+        <span key={k} className="truncate">
+          <span className="font-medium text-[var(--color-ink)]">{k}:</span>{" "}
+          <span className="truncate">{trimmedJson(v)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const PANEL_FIELDS: Record<string, string[]> = {
+  Package: ["name", "version", "architecture", "vendor", "description"],
+  Activity: ["pid", "name", "cmdline", "state", "user"],
+  Network: ["protocol", "state", "pid", "process", "local_ip", "local_port"],
+  Server: ["name", "state", "start_mode", "description"],
+  Cpu: ["cpu_name", "cpu_mhz", "memory", "ram", "total_memory"],
+  Monitor: ["hostname", "os_name", "os_release", "os_version", "os_codename", "kernel"],
+};
+
 function Panel({
   icon: Icon, title, value, empty,
 }: { icon: typeof Cpu; title: string; value: unknown; empty: string }) {
@@ -56,14 +89,19 @@ function Panel({
         <p className="p-4 text-sm text-[var(--color-ink-muted)]">{empty}</p>
       ) : (
         <ul className="divide-y divide-[var(--color-border)] max-h-80 overflow-y-auto">
-          {rows.slice(0, 50).map((row, i) => (
-            <li key={i} className="p-3 text-sm">
-              <p className="font-medium truncate">{itemLabel(row)}</p>
-              <p className="mt-1 text-xs text-[var(--color-ink-muted)] line-clamp-1">
-                {typeof row === "object" ? JSON.stringify(row) : String(row)}
-              </p>
-            </li>
-          ))}
+          {rows.slice(0, 50).map((row, i) => {
+            const fields = PANEL_FIELDS[Icon.name] ?? [];
+            return (
+              <li key={i} className="p-3 text-sm">
+                <p className="font-medium truncate">{itemLabel(row)}</p>
+                {typeof row === "object" && row !== null ? (
+                  <FieldDetails row={row as Record<string, unknown>} fields={fields} />
+                ) : (
+                  <p className="mt-1 text-xs text-[var(--color-ink-muted)]">{String(row)}</p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

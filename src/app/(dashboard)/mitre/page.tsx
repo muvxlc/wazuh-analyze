@@ -89,8 +89,8 @@ export default function MitrePage() {
                   <span className="text-xs font-semibold bg-[var(--color-canvas)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full" title={t("total-count")}>{total}</span>
                 </header>
                 <ul className="divide-y divide-[var(--color-border)] text-sm">
-                  {items.map((tech) => (
-                    <li key={tech.techniqueId} className="flex flex-col p-3 hover:bg-[var(--color-canvas-soft)] transition-colors">
+                  {items.map((tech, i) => (
+                    <li key={`${tech.techniqueId}-${i}`} className="flex flex-col p-3 hover:bg-[var(--color-canvas-soft)] transition-colors">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <Link href={`/alerts?search=${encodeURIComponent(tech.techniqueId)}`} className="font-semibold text-[var(--color-primary-deep)] hover:underline flex items-center gap-1">
                           <Hash size={12} /> {tech.techniqueId}

@@ -127,7 +127,8 @@ export async function registerQueues(
     await runWeeklyReport(bg.db);
   });
 
-  await pgBoss.work(QUEUE_SYNC_ABUSEIPDB, async () => {
+  await pgBoss.work(QUEUE_SYNC_ABUSEIPDB, async (jobs: JobBatch<Record<string, unknown>>) => {
+    const jobId = jobs[0]?.id;
     const effConfig = await resolveEffectiveConfig(bg.db, config);
     const key = effConfig.ti?.abuseipdbKey;
     if (!key) {
@@ -137,10 +138,17 @@ export async function registerQueues(
     console.log("[Queue:sync-abuseipdb] Syncing AbuseIPDB blacklist");
     const cache = new DbTiCache(bg.db);
     try {
+      await setQueuePhase(bg.db, QUEUE_SYNC_ABUSEIPDB, "abuseipdb", "loading", { jobId });
       const count = await refreshAbuseIpDbBlacklist(key, cache);
       console.log(`[Queue:sync-abuseipdb] Synced ${count} IPs`);
+      await setQueuePhase(bg.db, QUEUE_SYNC_ABUSEIPDB, "abuseipdb", "completed", { jobId, detail: `${count} IPs` });
     } catch (err) {
-      console.error("[Queue:sync-abuseipdb] Sync failed:", err instanceof Error ? err.message : String(err));
+      const e = err as { message?: string; code?: string; cause?: { code?: string; message?: string } };
+      const cause = e.cause ? ` cause=${e.cause.code ?? e.cause.message ?? String(e.cause)}` : "";
+      const code = e.code ? ` code=${e.code}` : "";
+      const detail = `${e.message ?? String(err)}${code}${cause}`;
+      console.error("[Queue:sync-abuseipdb] Sync failed:", detail, err);
+      await setQueuePhase(bg.db, QUEUE_SYNC_ABUSEIPDB, "abuseipdb", "failed", { jobId, detail });
     }
   });
 

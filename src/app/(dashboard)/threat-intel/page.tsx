@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { RefreshCw, Search, ShieldAlert, Activity, Tag, Clock } from "lucide-react";
+import { RefreshCw, Search, ShieldAlert, Activity, Tag, Clock, Database } from "lucide-react";
 import Link from "next/link";
 
 interface Indicator {
@@ -35,6 +35,57 @@ export default function ThreatIntelPage() {
   const [type, setType] = useState("all");
   const [activeQuery, setActiveQuery] = useState("");
   const [activeType, setActiveType] = useState("all");
+  const [syncing, setSyncing] = useState(false);
+  const [syncJobId, setSyncJobId] = useState<string | null>(null);
+  const [syncPhase, setSyncPhase] = useState("");
+
+  const sync = () => {
+    if (syncing || syncJobId) return;
+    setSyncing(true);
+    fetch("/api/threat-intel/sync", { method: "POST" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Sync failed. Check settings."))))
+      .then((body: { data?: { jobId?: string } }) => {
+        setSyncJobId(body.data?.jobId ?? null);
+        setSyncPhase("queued");
+        setSyncing(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setSyncing(false);
+      });
+  };
+
+  useEffect(() => {
+    if (!syncJobId) return;
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/threat-intel/sync/${syncJobId}`);
+        if (!r.ok) throw new Error("status check failed");
+        const body = (await r.json()) as { data?: { phase?: string; status?: string } };
+        if (!mounted) return;
+        setSyncPhase(body.data?.phase ?? "");
+        const status = body.data?.status;
+        if (status === "done" || status === "error") {
+          setSyncJobId(null);
+          setSyncPhase("");
+          if (status === "error") setError("Sync failed. See queue logs.");
+          else load();
+          return;
+        }
+      } catch {
+        // transient; keep polling
+      }
+      timer = setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncJobId]);
 
   const load = () => {
     setLoading(true);
@@ -69,6 +120,12 @@ export default function ThreatIntelPage() {
         <div>
           <h1>{shell("threatIntel")}</h1>
           <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{t("subtitle")}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={sync} disabled={syncing || !!syncJobId} className="outline-button px-3 py-1.5 text-xs flex items-center gap-2">
+            <Database size={14} className={syncing || syncJobId ? "animate-pulse text-[var(--color-primary)]" : ""} />
+            {syncing ? "Starting..." : syncJobId ? (syncPhase || "Syncing...") : "Sync Database"}
+          </button>
         </div>
       </header>
 

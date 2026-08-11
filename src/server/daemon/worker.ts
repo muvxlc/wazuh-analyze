@@ -1,6 +1,6 @@
 import { AppConfig } from "../config";
 import { getPgBoss, stopPgBoss } from "./pg-boss";
-import { registerQueues, QUEUE_WEEKLY_REPORT } from "./queue";
+import { registerQueues, QUEUE_WEEKLY_REPORT, QUEUE_SYNC_ABUSEIPDB } from "./queue";
 import { createDatabase } from "../db/client";
 import { enqueuePendingAlerts } from "./backfill";
 
@@ -15,6 +15,9 @@ export async function startWorker(config: AppConfig) {
 
   // Weekly SOC report: Mondays 09:00 (server-local cron). Idempotent — schedule() upserts.
   await boss.schedule(QUEUE_WEEKLY_REPORT, "0 2 * * 1", {}, { tz: "UTC" });
+
+  // Daily AbuseIPDB blacklist sync. Idempotent — schedule() upserts.
+  await boss.schedule(QUEUE_SYNC_ABUSEIPDB, "0 0 * * *", {}, { tz: "UTC" });
 
   // Auto-backfill: enqueue alerts lacking analysis. Non-blocking, small batch.
   // ponytail: batch 50 keeps local LM Studio from being flooded on cold start.
