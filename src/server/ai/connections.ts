@@ -289,21 +289,35 @@ function assertBaseValid(baseUrl: string): URL {
   }
 }
 
+function textContent(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return null;
+  const parts = value.flatMap((part) => {
+    if (typeof part === "string") return [part];
+    if (typeof part === "object" && part !== null) {
+      const p = part as { text?: unknown; content?: unknown };
+      return [p.text, p.content].filter((item): item is string => typeof item === "string");
+    }
+    return [];
+  });
+  return parts.length > 0 ? parts.join("") : null;
+}
+
 function extractText(response: unknown): string {
   const value = response as {
-    choices?: Array<{ message?: { content?: unknown } }>;
+    choices?: Array<{ message?: { content?: unknown }; text?: unknown }>;
     output?: Array<{ type?: string; content?: unknown }>;
+    response?: unknown;
+    text?: unknown;
   } | null;
-  const choices = value?.choices;
-  const native = value?.output;
-  if (Array.isArray(choices) && choices.length > 0) {
-    const content = choices[0]?.message?.content;
-    if (typeof content === "string") return content;
-  }
-  if (Array.isArray(native) && native.length > 0 && native[0]?.type === "message") {
-    const content = native[0].content;
-    if (typeof content === "string") return content;
-  }
+  const choice = value?.choices?.[0];
+  const content = textContent(choice?.message?.content) ?? textContent(choice?.text);
+  if (content) return content;
+  const native = value?.output?.find((item) => item.type === "message") ?? value?.output?.[0];
+  const nativeContent = textContent(native?.content);
+  if (nativeContent) return nativeContent;
+  const fallback = textContent(value?.response) ?? textContent(value?.text);
+  if (fallback) return fallback;
   throw new AppError("lm_studio_empty_content", 502);
 }
 
@@ -328,7 +342,9 @@ class OpenAiCompatibleChatProvider implements ChatProvider {
             { role: "system", content: systemPrompt },
             { role: "user", content: input },
           ],
-          max_tokens: 2_048,
+          max_tokens: 4_096,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
         }),
         ...(signal ? { signal } : {}),
       },

@@ -42,12 +42,12 @@ describe("AlertTable", () => {
     const { rerender } = render(
       <AlertTable status="loading" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
     );
-    expect(screen.getByText("loading")).toBeInTheDocument();
+    expect(screen.getByText("Loading alerts…")).toBeInTheDocument();
 
     rerender(
       <AlertTable status="success" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
     );
-    expect(screen.getByText("empty")).toBeInTheDocument();
+    expect(screen.getByText(/No alerts match/)).toBeInTheDocument();
   });
 
   it("shows severity badges with correct color and label", () => {
@@ -127,7 +127,7 @@ describe("AlertTable", () => {
     render(
       <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={handler} canModify={true} />
     );
-    const reopenBtn = screen.getByRole("button", { name: /^Reopen$/ });
+    const reopenBtn = screen.getByRole("button", { name: /^Reopen/ });
     expect(reopenBtn).toBeInTheDocument();
     reopenBtn.click();
     expect(handler).toHaveBeenCalledWith("a1");
@@ -138,20 +138,20 @@ describe("AlertTable", () => {
     render(
       <AlertTable status="success" alerts={[makeAlert({ status: "resolved" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} />
     );
-    expect(screen.getByRole("button", { name: /^Reopen$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Reopen/ })).toBeInTheDocument();
   });
 
   it("does not render Reopen for open alert", () => {
     render(
       <AlertTable status="success" alerts={[makeAlert({ status: "open" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} />
     );
-    expect(screen.queryByRole("button", { name: /^Reopen$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Reopen/ })).not.toBeInTheDocument();
   });
 
   it("does not render Reopen when canModify is false", () => {
     render(
       <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={false} />
     );
-    expect(screen.queryByRole("button", { name: /^Reopen$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Reopen/ })).not.toBeInTheDocument();
   });
 });

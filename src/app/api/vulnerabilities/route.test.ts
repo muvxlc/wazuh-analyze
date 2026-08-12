@@ -33,7 +33,7 @@ vi.mock("../../../server/wazuh/agent-service", () => ({
   getAgentSnapshot: vi.fn().mockResolvedValue({ agents: [{ id: "001", name: "a1", status: "active", ip: "1.2.3.4", version: "4.7", lastKeepAlive: null, groups: [] }], syncedAt: new Date(), stale: false, upstreamErrorCode: null }),
 }));
 vi.mock("../../../server/wazuh/indexer", () => ({
-  fetchAgentVulnerabilities: vi.fn().mockResolvedValue([{ name: "CVE-2023-1234", severity: "High", cvss_score: 8.5 }]),
+  fetchAgentVulnerabilities: vi.fn().mockResolvedValue([{ cve: "CVE-2023-1234", severity: "High", cvss_score: 8.5, status: "VALID" }]),
 }));
 
 import { GET } from "./route";
@@ -47,7 +47,7 @@ describe("GET /api/vulnerabilities", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.vulnerabilities).toHaveLength(1);
-    expect(body.data.vulnerabilities[0].name).toBe("CVE-2023-1234");
+    expect(body.data.vulnerabilities[0].cve).toBe("CVE-2023-1234");
     expect(body.data.agents[0].id).toBe("001");
   });
 });

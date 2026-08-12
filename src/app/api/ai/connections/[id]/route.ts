@@ -18,7 +18,7 @@ const patchSchema = z
     baseUrl: z.string().url().max(500).optional(),
     model: z.string().trim().min(1).max(200).optional(),
     apiKey: z.string().max(1_000).nullable().optional(),
-    timeoutMs: z.number().int().positive().max(300_000).optional(),
+    timeoutMs: z.number().int().positive().max(600_000).optional(),
     isDefault: z.boolean().optional(),
   })
   .strict();

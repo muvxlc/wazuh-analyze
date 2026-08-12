@@ -12,7 +12,7 @@ export function LocaleSwitcher({ currentLocale }: { currentLocale?: string }) {
   const handleLocaleChange = async (newLocale: string) => {
     const res = await fetch("/api/preferences/locale", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Origin: window.location.origin },
       body: JSON.stringify({ locale: newLocale }),
     });
     if (!res.ok) {

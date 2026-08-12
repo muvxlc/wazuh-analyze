@@ -89,6 +89,7 @@ const v = (cve: string, score?: number): VulnRecord => ({
 });
 
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.mocked(getAgentSnapshot).mockResolvedValue({ agents: [agent("001", "a1")], syncedAt: new Date(), stale: false, upstreamErrorCode: null });
   vi.mocked(fetchAgentVulnerabilities).mockResolvedValue([v("CVE-2023-1234", 8.5)]);
   vi.mocked(resolveEffectiveConfig).mockResolvedValue(withIndexer);
@@ -138,5 +139,22 @@ describe("GET /api/vulnerabilities deep coverage", () => {
       { ...v("CVE-1", 6), agentId: "001", agentName: "a1" },
       { ...v("CVE-2", 2), agentId: "001", agentName: "a1" },
     ]);
+  });
+
+  it("returns empty vulnerabilities when no indexer is configured", async () => {
+    vi.mocked(resolveEffectiveConfig).mockResolvedValueOnce(withoutIndexer);
+    vi.mocked(getAgentSnapshot).mockResolvedValueOnce({ agents: [agent("001", "a1")], syncedAt: new Date(), stale: false, upstreamErrorCode: null });
+    const body = await (await GET(request())).json();
+    expect(body.data.vulnerabilities).toEqual([]);
+    expect(body.data.indexerConfigured).toBe(false);
+    expect(body.data.indexerError).toBe(false);
+    expect(fetchAgentVulnerabilities).not.toHaveBeenCalled();
+  });
+
+  it("returns empty for agent with no matching indexer docs", async () => {
+    vi.mocked(fetchAgentVulnerabilities).mockResolvedValueOnce([]);
+    const body = await (await GET(request())).json();
+    expect(body.data.vulnerabilities).toEqual([]);
+    expect(body.data.indexerError).toBe(false);
   });
 });

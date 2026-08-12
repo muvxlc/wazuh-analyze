@@ -69,8 +69,8 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
   return (
     <article className="flex flex-col gap-6 p-6">
       <header className="flex flex-col gap-2 rounded-[8px] border border-[var(--color-hairline)] p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[var(--color-ink)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="min-w-0 flex-1 break-words text-xl font-bold text-[var(--color-ink)]">
             {incident.incidentNumber ? `[${incident.incidentNumber}] ` : ""}{incident.title}
           </h1>
           <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
           {t("severity")}: <strong className="capitalize text-[var(--color-ink)]">{incident.severity}</strong> · {t("created")}: {new Date(incident.createdAt).toLocaleString()}
         </p>
         {draftMessage && (
-          <p className={`text-xs mt-2 ${draftMessage.startsWith("Error") ? "text-[var(--color-danger-ink)]" : "text-green-600"}`}>
+          <p className={`text-xs mt-2 ${draftMessage.startsWith("Error") ? "text-[var(--color-danger-ink)]" : "text-[var(--color-success)]"}`}>
             {draftMessage}
           </p>
         )}
@@ -131,7 +131,7 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
           <ul className="divide-y divide-[var(--color-hairline)] text-sm">
             {(incident.alerts ?? []).map((alt) => (
               <li key={alt.alertId} className="py-2">
-                <Link href={`/alerts/${alt.alertId}`} className="font-mono text-xs text-[var(--color-primary)] hover:underline">
+                <Link href={`/alerts/${alt.alertId}`} className="break-all font-mono text-xs text-[var(--color-primary)] hover:underline">
                   {alt.alertId}
                 </Link>
               </li>
@@ -146,7 +146,7 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
           </h2>
           <ol className="divide-y divide-[var(--color-hairline)] text-sm">
             {incident.timeline.map((ev) => (
-              <li key={ev.id} className="flex justify-between py-2 text-xs">
+              <li key={ev.id} className="flex flex-wrap justify-between gap-2 py-2 text-xs">
                 <span className="font-semibold uppercase text-[var(--color-ink)]">{ev.toStatus}</span>
                 <span className="text-[var(--color-ink-muted)]">{new Date(ev.occurredAt).toLocaleString()}</span>
               </li>

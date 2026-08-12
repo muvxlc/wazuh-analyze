@@ -91,6 +91,8 @@ export interface AppConfig {
       url: URL;
       username: string;
       password: string;
+      caPath?: string | null;
+      allowInsecureTls?: boolean;
     } | null;
   };
   settingsEncryptionKey: string;

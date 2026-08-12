@@ -40,6 +40,11 @@
     "mitre": "MITRE ATT&CK",
     "compliance": "Compliance"
   },
+  "alerts": {
+    "back": "Back to alerts",
+    "next": "Next",
+    "page": "Page {n}"
+  },
   "queues": {
     "title": "Queues",
     "empty": "No queues registered.",
@@ -200,7 +205,17 @@
     "linked-alerts": "Linked alerts",
     "agent": "Agent",
     "rule": "Rule",
-    "load-error": "Failed to load incidents."
+    "load-error": "Failed to load incidents.",
+    "proposedActions": "Proposed actions",
+    "approve": "Approve",
+    "reject": "Reject",
+    "analystNotes": "Analyst notes",
+    "loadingNotes": "Loading notes…",
+    "noNotes": "No notes yet.",
+    "notePlaceholder": "Add a note…",
+    "addNote": "Add note",
+    "noteSaved": "Note saved.",
+    "noteSaveFailed": "Failed to save note."
   },
   "dashboard": {
     "overview-kicker": "Operations overview",
@@ -231,7 +246,14 @@
     "col-title": "Description",
     "col-agent": "Agent",
     "col-cvss": "CVSS",
-    "col-status": "Status"
+    "col-status": "Status",
+    "summary-total": "Total",
+    "summary-critical": "Critical",
+    "summary-high": "High",
+    "summary-medium": "Medium",
+    "summary-low": "Low",
+    "showing-count": "Showing {count} of {total}",
+    "col-published": "Published"
   },
   "posture": {
     "loading": "Loading posture data...",
@@ -242,21 +264,37 @@
     "stale": "Agent list is stale.",
     "no-agents": "No agents found.",
     "no-data": "No data reported.",
-    "sca": "Configuration Assessment",
-    "fim": "File Integrity Monitoring",
-    "rootcheck": "Malware / Rootcheck"
+    "summary": "Posture summary",
+    "sca": "SCA",
+    "sca-label": "Config Violations",
+    "sca-score": "SCA score",
+    "sca-subtitle": "Security configuration assessment rules",
+    "fim": "FIM",
+    "fim-label": "File Changes",
+    "fim-subtitle": "File integrity monitoring events",
+    "rootcheck": "Rootcheck",
+    "rootcheck-label": "Rootkit Indicators",
+    "rootcheck-subtitle": "System rootkit and malware checks",
+    "showing-count": "Showing {count} of {total}"
   },
   "mitre": {
     "loading": "Loading MITRE data...",
     "subtitle": "Techniques and tactics identified by AI analysis across recent alerts.",
     "refresh": "Refresh",
+    "range-label": "Time range",
     "range-7d": "7 days",
     "range-30d": "30 days",
     "range-90d": "90 days",
     "total-count": "Total alerts",
     "no-data": "No MITRE techniques found",
     "no-data-desc": "Run AI analysis on alerts to populate this matrix.",
-    "unknown-technique": "Unknown technique"
+    "unknown-technique": "Unknown technique",
+    "summary-label": "Summary metrics",
+    "metric-total-alerts": "Total Alerts",
+    "metric-techniques": "Techniques",
+    "metric-tactics": "Tactics",
+    "metric-top-tactic": "Top Tactic",
+    "row-cap-notice": "Showing first {count} of {total} rows."
   },
   "compliance": {
     "loading": "Loading compliance data...",
@@ -266,7 +304,22 @@
     "range-30d": "30 days",
     "range-90d": "90 days",
     "no-data": "No compliance mappings found",
-    "no-data-desc": "Compliance data appears when Wazuh alerts include framework mappings."
+    "no-data-desc": "Compliance data appears when Wazuh alerts include framework mappings.",
+    "summary-label": "Compliance overview",
+    "overall-score": "Overall Score",
+    "passed": "Passed",
+    "failed": "Failed",
+    "total-checks": "Total Checks",
+    "policies": "Policies",
+    "status-pass": "Pass",
+    "status-warn": "Warning",
+    "status-fail": "Fail",
+    "score": "Score percentage",
+    "agents-applied": "Agents applied",
+    "frameworks": "Frameworks",
+    "more": "more",
+    "pass-fail": "{pass} passed / {fail} failed",
+    "showing-count": "Showing {count} of {total}"
   },
   "ti": {
     "loading": "Loading Threat Intel data...",
@@ -284,7 +337,13 @@
     "col-category": "Category",
     "col-sources": "Sources",
     "col-fetched": "Last fetched",
-    "pulses": "pulses"
+    "pulses": "pulses",
+    "sort-score": "Sort by score",
+    "sort-newest": "Newest first",
+    "sort-oldest": "Oldest first",
+    "prev": "Prev",
+    "next": "Next",
+    "showing": "Showing {count} indicators"
   },
   "hygiene": {
     "loading": "Loading IT Hygiene data...",
@@ -300,6 +359,7 @@
     "ports": "Ports",
     "services": "Services",
     "hardware": "Hardware",
-    "os": "OS"
+    "os": "OS",
+    "summary": "Summary"
   }
 }

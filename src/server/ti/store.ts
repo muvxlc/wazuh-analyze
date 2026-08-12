@@ -47,4 +47,29 @@ export class DbTiCache implements TiCacheStore {
         },
       });
   }
+
+  async setMany(verdicts: TiVerdict[]): Promise<void> {
+    if (verdicts.length === 0) return;
+    await this.db
+      .insert(iocCache)
+      .values(verdicts.map((v) => ({
+        indicator: v.indicator,
+        type: v.type,
+        abuseScore: v.abuseScore,
+        abuseCategory: v.abuseCategory,
+        pulseCount: v.pulseCount,
+        sources: v.sources,
+      })))
+      .onConflictDoUpdate({
+        target: iocCache.indicator,
+        set: {
+          type: iocCache.type,
+          abuseScore: iocCache.abuseScore,
+          abuseCategory: iocCache.abuseCategory,
+          pulseCount: iocCache.pulseCount,
+          sources: iocCache.sources,
+          fetchedAt: new Date(),
+        },
+      });
+  }
 }

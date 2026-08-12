@@ -15,6 +15,7 @@ import { buildTiProviders, type TiProvider, type TiVerdict } from "../ti/provide
 import { DbTiCache } from "../ti/store";
 import { writeAuditEvent } from "../audit/audit-service";
 import { enqueueNotification } from "../daemon/queue";
+import { getRuleMitreTechniques, mergeMitreTechniques } from "../mitre/rule-map";
 import type { RequestMetadata } from "../http/request-metadata";
 
 export interface AnalyzeOptions {
@@ -49,6 +50,11 @@ export async function runAlertAnalysis(
   const alert = await getAlertDetail(db, actor, alertId);
   const conn = await resolveAiConnection(db, options.connectionId ?? null, encryptionKey);
 
+  // Background analysis isn't interactive — local LLMs routinely exceed the
+  // chat-style connection timeout. Floor at 3 minutes so slow models finish
+  // instead of aborting into ai_response_timeout. Raise via conn.timeoutMs.
+  const analysisTimeoutMs = Math.max(conn.timeoutMs, 180_000);
+
   const provider =
     deps.provider ??
     createChatProvider({
@@ -56,7 +62,7 @@ export async function runAlertAnalysis(
       baseUrl: conn.baseUrl,
       apiKey: conn.apiKey,
       model: conn.model,
-      timeoutMs: conn.timeoutMs,
+      timeoutMs: analysisTimeoutMs,
     });
 
   // Enrichment is best-effort: any failure falls back to alert-only analysis.
@@ -82,8 +88,12 @@ export async function runAlertAnalysis(
     }
   }
 
+  const ruleMitre = getRuleMitreTechniques(alert.ruleId, alert.rawPayload);
   const startTime = Date.now();
-  const verdict = await analyzeAlert(provider, alert, conn.timeoutMs, context);
+  const verdict = await analyzeAlert(provider, alert, analysisTimeoutMs, context, ruleMitre);
+  // Wazuh is authoritative. AI explains supplied techniques but cannot add or alter IDs.
+  if (ruleMitre.length > 0) verdict.mitreAttack = ruleMitre;
+  else delete verdict.mitreAttack;
   const latencyMs = Date.now() - startTime;
 
   const [row] = await db

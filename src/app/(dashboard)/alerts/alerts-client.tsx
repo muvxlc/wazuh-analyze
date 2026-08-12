@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertFilters } from "../../../components/alerts/alert-filters";
 import { AlertTable } from "../../../components/alerts/alert-table";
 import { AlertDrawer } from "../../../components/alerts/alert-drawer";
@@ -17,9 +18,11 @@ interface UndoState {
 }
 
 export function AlertsClient({ canModify, canAnalyze }: { readonly canModify: boolean; readonly canAnalyze: boolean }) {
+  const t = useTranslations("alerts");
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [cursor, setCursor] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<Record<string, string | undefined>>({ levelMin: "4" });
   const [hideLow, setHideLow] = useState(true);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
@@ -54,6 +57,7 @@ export function AlertsClient({ canModify, canAnalyze }: { readonly canModify: bo
         };
         setAlerts(body.data.items);
         setCursor(body.data.cursor);
+        setPage((current) => (nextCursor ? current + 1 : 1));
         setStatus("success");
       } catch {
         setStatus("error");
@@ -165,11 +169,19 @@ export function AlertsClient({ canModify, canAnalyze }: { readonly canModify: bo
         onReopen={(id) => void transitionWithUndo(id, "open")}
         onOpenDetail={openDetail}
       />
-      {cursor && (
-        <button type="button" onClick={() => void load(filters, cursor)}>
-          Next page
-        </button>
-      )}
+      <div className="pagination flex items-center justify-between gap-3 text-sm text-[var(--color-ink-muted)]">
+        <span>{t("page", { n: page })}</span>
+        {cursor && (
+          <button
+            type="button"
+            className="outline-button"
+            disabled={status === "loading"}
+            onClick={() => void load(filters, cursor)}
+          >
+            {t("next")}
+          </button>
+        )}
+      </div>
       <AlertDrawer
         alert={detailAlert}
         isOpen={drawerOpen}

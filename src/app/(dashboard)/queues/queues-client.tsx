@@ -152,7 +152,7 @@ export function QueuesClient({ canManage = false }: Props) {
   const metrics = data?.metrics;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[var(--color-ink)]">{t("title")}</h1>
@@ -213,9 +213,6 @@ export function QueuesClient({ canManage = false }: Props) {
                       <span className="font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[280px]" title={r.entity_id}>{r.entity_id}</span>
                       <span className="text-xs font-semibold uppercase text-[var(--color-ink)]">{r.phase}</span>
                       <span className="text-xs text-[var(--color-ink-muted)]">{fmtDuration(r.updated_at, null)}</span>
-                    </div>
-                    <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-hairline)]">
-                      <span className="block h-full w-1/3 animate-pulse rounded-full bg-[var(--color-primary)]" />
                     </div>
                   </li>
                 ))}
@@ -322,7 +319,7 @@ export function QueuesClient({ canManage = false }: Props) {
                                     type="button"
                                     onClick={() => void handleJobAction(job.id, "retry")}
                                     disabled={actionJob === job.id}
-                                    className="text-xs font-semibold text-[var(--color-primary)] hover:underline disabled:opacity-50"
+                                    className="min-h-[36px] px-2 py-1.5 text-xs font-semibold text-[var(--color-primary)] hover:underline disabled:opacity-50"
                                   >
                                     {actionJob === job.id ? "…" : t("retry")}
                                   </button>
@@ -332,7 +329,7 @@ export function QueuesClient({ canManage = false }: Props) {
                                     type="button"
                                     onClick={() => void handleJobAction(job.id, "cancel")}
                                     disabled={actionJob === job.id}
-                                    className="text-xs font-semibold text-[var(--color-danger-ink)] hover:underline disabled:opacity-50"
+                                    className="min-h-[36px] px-2 py-1.5 text-xs font-semibold text-[var(--color-danger-ink)] hover:underline disabled:opacity-50"
                                   >
                                     {actionJob === job.id ? "…" : t("cancel")}
                                   </button>

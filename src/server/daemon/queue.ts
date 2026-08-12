@@ -38,7 +38,21 @@ export const SYSTEM_ACTOR: ActorContext = {
 /**
  * Register all background queues. Retry/backoff configured per-queue at send time.
  */
-export async function registerQueues(
+let registration: Promise<void> | null = null;
+
+export function registerQueues(
+  pgBoss: PgBoss,
+  config: AppConfig,
+): Promise<void> {
+  if (registration) return registration;
+  registration = registerQueuesInternal(pgBoss, config).catch((error) => {
+    registration = null;
+    throw error;
+  });
+  return registration;
+}
+
+async function registerQueuesInternal(
   pgBoss: PgBoss,
   config: AppConfig,
 ): Promise<void> {
@@ -52,7 +66,7 @@ export async function registerQueues(
   await pgBoss.createQueue(QUEUE_SYNC_ABUSEIPDB).catch(() => {});
 
   // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
-  await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string }>) => {
+  await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string; connectionId?: string; enrich?: boolean }>) => {
     const effConfig = await resolveEffectiveConfig(bg.db, config);
     for (const job of jobs) {
       const alertId = job.data.alertId;
@@ -64,7 +78,7 @@ export async function registerQueues(
       };
       try {
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "loading", { jobId: job.id });
-        const analysis = await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { enrich: true }, metadata, effConfig);
+        const analysis = await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { connectionId: job.data.connectionId, enrich: job.data.enrich }, metadata, effConfig);
         const v = analysis.verdict;
 
         let autoDrafted = false;
@@ -85,7 +99,11 @@ export async function registerQueues(
         }
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "completed", { jobId: job.id });
       } catch (err) {
-        await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "failed", { jobId: job.id, detail: err instanceof Error ? err.message : String(err) });
+        const e = err as { message?: string; code?: string; details?: { reason?: string; validationIssue?: string } };
+        const detail = [e.code ?? (err instanceof Error ? err.message : String(err)), e.details?.reason, e.details?.validationIssue]
+          .filter(Boolean)
+          .join(": ");
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "failed", { jobId: job.id, detail });
         throw err;
       }
     }
@@ -155,15 +173,20 @@ export async function registerQueues(
   console.log("[PgBoss] Queues registered");
 }
 
-/** Idempotent enqueue: singletonKey dedupes within TTL window. */
+/** Enqueue analysis. Manual reruns bypass singleton dedupe; backfill stays idempotent. */
 export async function enqueueAlertAnalysis(
   alertId: string,
+  options: { force?: boolean; connectionId?: string; enrich?: boolean } = {},
 ): Promise<void> {
   const config = loadConfig(process.env);
   const pgBoss = await getPgBoss(config);
-  await pgBoss.send(QUEUE_ANALYZE_ALERT, { alertId }, {
-    singletonKey: `analyze:${alertId}`,
-    singletonSeconds: 60 * 30, // 30 min dedupe window
+  await registerQueues(pgBoss, config);
+  const { force, ...analysisOptions } = options;
+  await pgBoss.send(QUEUE_ANALYZE_ALERT, { alertId, ...analysisOptions }, {
+    ...(force ? {} : {
+      singletonKey: `analyze:${alertId}`,
+      singletonSeconds: 60 * 30,
+    }),
     retryLimit: 5,
     retryDelay: 30,
     retryBackoff: true,

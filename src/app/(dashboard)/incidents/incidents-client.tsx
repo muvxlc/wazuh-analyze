@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { IncidentListItem } from "../../../server/incidents/query";
+import { SEVERITY_COLORS, severityLabel } from "../../../server/alerts/severity-mapper";
+
+function incidentSeverity(sev: string) {
+  const key = sev.toLowerCase();
+  return key === "critical" || key === "high" || key === "medium" || key === "low" ? key : "low";
+}
 
 export function IncidentsClient({ canManage }: { readonly canManage: boolean }) {
   const t = useTranslations("incidents");
@@ -78,7 +84,7 @@ export function IncidentsClient({ canManage }: { readonly canManage: boolean }) 
         )}
       </header>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {(["open", "investigating", "mitigated", "resolved", "all"] as const).map((st) => (
           <button
             key={st}
@@ -107,7 +113,7 @@ export function IncidentsClient({ canManage }: { readonly canManage: boolean }) 
       {status === "success" && incidents.length > 0 && (
         <div className="overflow-x-auto rounded-[8px] border border-[var(--color-hairline)]">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-[var(--color-hairline)] bg-[var(--color-canvas-soft)] text-xs uppercase text-[var(--color-ink-muted)]">
+            <thead className="sticky top-0 z-10 border-b border-[var(--color-hairline)] bg-[var(--color-canvas-soft)] text-xs uppercase text-[var(--color-ink-muted)]">
               <tr>
                 <th className="p-4">Title</th>
                 <th className="p-4">{t("severity")}</th>
@@ -125,7 +131,18 @@ export function IncidentsClient({ canManage }: { readonly canManage: boolean }) 
                       {inc.title}
                     </Link>
                   </td>
-                  <td className="p-4 text-xs font-semibold capitalize text-[var(--color-ink-muted)]">{inc.severity}</td>
+                  <td className="p-4">
+                    <span
+                      className="severity-badge"
+                      aria-label={`severity ${inc.severity}`}
+                      style={{
+                        backgroundColor: SEVERITY_COLORS[incidentSeverity(inc.severity)],
+                        color: "var(--color-on-dark)",
+                      }}
+                    >
+                      {severityLabel(incidentSeverity(inc.severity))}
+                    </span>
+                  </td>
                   <td className="p-4 text-xs font-medium uppercase text-[var(--color-ink-muted)]">{inc.status}</td>
                   <td className="p-4 font-mono text-xs">{inc.agentId ?? "-"}</td>
                   <td className="p-4 text-xs">{inc.alertCount}</td>

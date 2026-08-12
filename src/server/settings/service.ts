@@ -145,6 +145,8 @@ export async function resolveEffectiveConfig(
             url: new URL(wazuhIndexerUrl.value),
             username: wazuhIndexerUsername.value ?? config.wazuh.indexer?.username ?? wazuhUsername.value ?? config.wazuh.username,
             password: wazuhIndexerPassword.value ?? config.wazuh.indexer?.password ?? wazuhPassword.value ?? config.wazuh.password,
+            caPath: config.wazuh.indexer?.caPath ?? (wazuhCaPath.value !== null && wazuhCaPath.value !== "" ? wazuhCaPath.value : null),
+            allowInsecureTls: config.wazuh.indexer?.allowInsecureTls ?? effectiveAllowInsecureTls,
           }
         : config.wazuh.indexer,
     },

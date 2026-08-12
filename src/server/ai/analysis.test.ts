@@ -29,6 +29,27 @@ describe("AI analysis contract", () => {
     await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({ summary: "Port changed", confidence: 0.8 });
   });
 
+  it("accepts bilingual summaries and attack explanations", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({
+      summary: "Port change", summaryEn: "Listening port changed", summaryTh: "ตรวจพบการเปลี่ยนแปลงพอร์ตที่เปิดรับการเชื่อมต่อ",
+      attackExplanationEn: "An exposed listening port may indicate a new service.", attackExplanationTh: "พอร์ตที่เปิดใหม่อาจบ่งชี้ว่ามี service ใหม่ทำงานอยู่",
+      recommendedActionsEn: ["Review the listening service"], recommendedActionsTh: ["ตรวจสอบ service ที่เปิดรับการเชื่อมต่อ"],
+      confidence: 0.7,
+    })) };
+    await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({ summaryEn: "Listening port changed", summaryTh: expect.any(String), attackExplanationTh: expect.any(String) });
+  });
+
+  it("drops low-quality Thai fields without dropping valid English actions", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({
+      summary: "Port change", summaryEn: "Listening port changed", summaryTh: "Listening port changed",
+      recommendedActionsEn: ["Review the port"], recommendedActionsTh: ["Review the port"], confidence: 0.7,
+    })) };
+    const result = await analyzeAlert(provider, alert);
+    expect(result.summaryTh).toBeUndefined();
+    expect(result.recommendedActionsTh).toBeUndefined();
+    expect(result.recommendedActionsEn).toEqual(["Review the port"]);
+  });
+
   it("accepts a rich SOC verdict with optional legacy fields absent", async () => {
     const verdict = {
       summary: "Brute-force against sshd",
@@ -50,17 +71,51 @@ describe("AI analysis contract", () => {
     expect(aiVerdictSchema.safeParse(verdict).success).toBe(true);
   });
 
-  it("returns typed error for non-JSON provider output", async () => {
+  it("rejects plain-text provider output", async () => {
     const provider = { chat: vi.fn().mockResolvedValue("not JSON") };
     await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({ code: "ai_response_invalid", status: 502 });
   });
 
-  it("returns typed error for invalid verdict schema", async () => {
+  it("rejects schema-invalid JSON", async () => {
     const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ confidence: 2 })) };
     await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({ code: "ai_response_invalid", status: 502 });
   });
 
-  it("rejects malformed MITRE technique ids", async () => {
+  it("coerces confidence given as 0-100 percentage", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ summary: "s", confidence: 85 })) };
+    await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({ confidence: 0.85 });
+  });
+
+  it("coerces severity casing and lowercase MITRE technique ids", async () => {
+    const provider = {
+      chat: vi.fn().mockResolvedValue(JSON.stringify({
+        summary: "s",
+        confidence: "0.7",
+        severity: "High",
+        mitreAttack: [{ techniqueId: "t1110" }],
+      })),
+    };
+    const v = await analyzeAlert(provider, alert);
+    expect(v.severity).toBe("high");
+    expect(v.confidence).toBe(0.7);
+    expect(v.mitreAttack?.[0].techniqueId).toBe("T1110");
+  });
+
+  it("accepts nested verdict aliases and percentage confidence", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ result: { conclusion: "Suspicious activity", confidence_score: "82%", severity: "HIGH" } })) };
+    await expect(analyzeAlert(provider, alert)).resolves.toMatchObject({
+      summary: "Suspicious activity", confidence: 0.82, severity: "high",
+    });
+  });
+
+  it("keeps empty provider output invalid", async () => {
+    const provider = { chat: vi.fn().mockResolvedValue("   ") };
+    await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({
+      code: "ai_response_invalid", status: 502,
+    });
+  });
+
+  it("rejects malformed MITRE output", async () => {
     const provider = {
       chat: vi.fn().mockResolvedValue(JSON.stringify({
         summary: "s",
@@ -68,7 +123,7 @@ describe("AI analysis contract", () => {
         mitreAttack: [{ techniqueId: "INVALID" }],
       })),
     };
-    await expect(analyzeAlert(provider, alert)).rejects.toThrow();
+    await expect(analyzeAlert(provider, alert)).rejects.toMatchObject({ code: "ai_response_invalid", status: 502 });
   });
 
   it("rejects out-of-range confidence", () => {

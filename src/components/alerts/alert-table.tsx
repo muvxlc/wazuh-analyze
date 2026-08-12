@@ -19,9 +19,9 @@ export function AlertTable({
   canModify: boolean;
   onOpenDetail?: (alert: AlertRecord) => void;
 }) {
-  if (status === "loading") return <p role="status">loading</p>;
-  if (status === "error") return <p role="alert">unavailable</p>;
-  if (alerts.length === 0) return <p>empty</p>;
+  if (status === "loading") return <p role="status">Loading alerts…</p>;
+  if (status === "error") return <p role="alert">Failed to load alerts</p>;
+  if (alerts.length === 0) return <p>No alerts match the current filters.</p>;
 
   return (
     <div className="table-scroll">
@@ -92,21 +92,21 @@ export function AlertTable({
                   </ul>
                 </td>
                 <td>{alert.status}</td>
-                <td className="table-actions">
+                <td className="table-actions" role="group" aria-label="Alert actions">
                   {canModify && alert.status === "open" && (
-                    <button type="button" onClick={() => onAcknowledge(alert.id)}>Acknowledge</button>
+                    <button type="button" onClick={() => onAcknowledge(alert.id)} aria-label={`Acknowledge ${alert.ruleDescription}`}>Acknowledge</button>
                   )}
                   {canModify && alert.status === "open" && (
-                    <button type="button" onClick={() => onResolve(alert.id)}>Resolve</button>
+                    <button type="button" onClick={() => onResolve(alert.id)} aria-label={`Resolve ${alert.ruleDescription}`}>Resolve</button>
                   )}
                   {canModify && alert.status === "acknowledged" && (
                     <>
-                      <button type="button" onClick={() => onResolve(alert.id)}>Resolve</button>
-                      <button type="button" onClick={() => onReopen?.(alert.id)}>Reopen</button>
+                      <button type="button" onClick={() => onResolve(alert.id)} aria-label={`Resolve ${alert.ruleDescription}`}>Resolve</button>
+                      <button type="button" onClick={() => onReopen?.(alert.id)} aria-label={`Reopen ${alert.ruleDescription}`}>Reopen</button>
                     </>
                   )}
                   {canModify && alert.status === "resolved" && (
-                    <button type="button" onClick={() => onReopen?.(alert.id)}>Reopen</button>
+                    <button type="button" onClick={() => onReopen?.(alert.id)} aria-label={`Reopen ${alert.ruleDescription}`}>Reopen</button>
                   )}
                 </td>
               </tr>

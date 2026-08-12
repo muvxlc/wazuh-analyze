@@ -14,8 +14,16 @@ export interface VulnRecord {
   published?: string;
 }
 
+type IndexerFetch = (
+  input: string | URL,
+  init?: RequestInit & { dispatcher?: unknown },
+) => Promise<Response>;
+
 /** Lightweight connectivity check for Wazuh Indexer. */
-export async function pingIndexer(config: WazuhConfig): Promise<boolean> {
+export async function pingIndexer(
+  config: WazuhConfig,
+  fetchFn: IndexerFetch = undiciFetch as unknown as IndexerFetch,
+): Promise<boolean> {
   if (!config.indexer) return false;
   const url = new URL("/", config.indexer.url);
   const dispatcher = config.allowInsecureTls
@@ -26,7 +34,7 @@ export async function pingIndexer(config: WazuhConfig): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5_000);
   try {
-    const res = await undiciFetch(url.toString(), {
+    const res = await fetchFn(url.toString(), {
       method: "GET",
       headers: { authorization: `Basic ${Buffer.from(`${config.indexer.username}:${config.indexer.password}`).toString("base64")}` },
       signal: controller.signal,
@@ -48,6 +56,7 @@ export async function fetchAgentVulnerabilities(
   config: WazuhConfig,
   agentId: string,
   limit = 20,
+  fetchFn: IndexerFetch = undiciFetch as unknown as IndexerFetch,
 ): Promise<VulnRecord[]> {
   const idx = config.indexer;
   if (!idx) {
@@ -62,56 +71,82 @@ export async function fetchAgentVulnerabilities(
     authorization: `Basic ${Buffer.from(`${idx.username}:${idx.password}`).toString("base64")}`,
   };
 
-  const body = {
+  // ponytail: Wazuh indexer mapping for `agent` varies by version/setup — sometimes
+  // `nested` (requires nested query), sometimes plain `object` (nested query 400s).
+  // Try nested first (Wazuh default), fall back to flat term on 400.
+  const buildBody = (agentClause: Record<string, unknown>) => ({
     query: {
       bool: {
         must: [
-          { term: { "agent.id": agentId } },
-          { term: { "vulnerability.status": "VALID" } }
-        ]
-      }
+          agentClause,
+          { term: { "vulnerability.status": "valid" } },
+        ],
+      },
     },
-    sort: [
-      { "vulnerability.severity": { order: "desc" } }
-    ],
+    sort: [{ "vulnerability.severity": { order: "desc" } }],
     size: limit,
-  };
+  });
+  const nestedClause = { nested: { path: "agent", query: { term: { "agent.id": agentId } } } };
+  const flatClause = { term: { "agent.id": agentId } };
 
-  const dispatcher = config.allowInsecureTls
+  // Use indexer-specific TLS settings when present; fall back to Wazuh API TLS settings.
+  const indexerCaPath = idx.caPath ?? config.caPath;
+  const indexerInsecureTls = idx.allowInsecureTls ?? config.allowInsecureTls;
+  const dispatcher = indexerInsecureTls
     ? new Agent({ connect: { rejectUnauthorized: false } })
-    : config.caPath
-      ? new Agent({ connect: { ca: config.caPath } })
+    : indexerCaPath
+      ? new Agent({ connect: { ca: indexerCaPath } })
       : undefined;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
 
-  try {
-    const res = await undiciFetch(url.toString(), {
+  async function runSearch(agentClause: Record<string, unknown>): Promise<any[]> {
+    const res = await fetchFn(url.toString(), {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildBody(agentClause)),
       signal: controller.signal,
       dispatcher,
     });
-
     if (!res.ok) {
       throw new WazuhError("wazuh_indexer_error", res.status, `Indexer returned ${res.status}`);
     }
-
     const data = await res.json() as any;
-    const hits = data?.hits?.hits || [];
+    return data?.hits?.hits || [];
+  }
+
+  try {
+    let hits: any[];
+    try {
+      hits = await runSearch(nestedClause);
+    } catch (err) {
+      // nested query against an object-mapped field 400s; retry flat.
+      if (err instanceof WazuhError && err.status === 400) {
+        hits = await runSearch(flatClause);
+      } else {
+        throw err;
+      }
+    }
 
     return hits.map((hit: any) => {
-      const v = hit._source?.vulnerability || {};
+      // Wazuh indexer stores vulnerability fields at the top level of _source,
+      // not nested under a `vulnerability` key.
+      const v = hit._source || {};
       return {
-        cve: v.cve,
-        title: v.title,
-        severity: v.severity,
-        cvss_score: v.cvss?.cvss3?.base_score || v.cvss?.cvss2?.base_score,
-        condition: v.condition,
-        status: v.status,
-        published: v.published,
+        cve: v.cve ?? v.vulnerability?.cve ?? "",
+        title: v.title ?? v.vulnerability?.title,
+        severity: v.severity ?? v.vulnerability?.severity ?? "",
+        // Wazuh stores CVSS score directly as `cvss_score` (numeric), with
+        // optional fallback to cvss.cvss3.base_score / cvss.cvss2.base_score.
+        // Check top-level cvss_score first, then nested cvss objects in both
+        // flat and legacy "vulnerability." prefixed shapes.
+        cvss_score: typeof v.cvss_score === "number" ? v.cvss_score
+          : v.cvss?.cvss3?.base_score ?? v.vulnerability?.cvss?.cvss3?.base_score
+          ?? v.cvss?.cvss2?.base_score ?? v.vulnerability?.cvss?.cvss2?.base_score,
+        condition: v.condition ?? v.vulnerability?.condition,
+        status: v.status ?? v.vulnerability?.status ?? "",
+        published: v.published ?? v.vulnerability?.published,
       };
     });
   } catch (err) {

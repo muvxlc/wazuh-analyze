@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { RefreshCw, Search, ShieldAlert, Activity, Tag, Clock, Database } from "lucide-react";
+import { RefreshCw, Search, ShieldAlert, Activity, Tag, Clock, Database, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface Indicator {
@@ -20,7 +20,10 @@ interface Indicator {
 interface PageData {
   query: string;
   type: string;
+  sort: string;
   limit: number;
+  cursor: string | null;
+  hasMore: boolean;
   indicators: Indicator[];
 }
 
@@ -35,13 +38,32 @@ export default function ThreatIntelPage() {
   const [type, setType] = useState("all");
   const [activeQuery, setActiveQuery] = useState("");
   const [activeType, setActiveType] = useState("all");
+  const [activeSort, setActiveSort] = useState("score");
   const [syncing, setSyncing] = useState(false);
   const [syncJobId, setSyncJobId] = useState<string | null>(null);
   const [syncPhase, setSyncPhase] = useState("");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+
+  const load = (nextCursor?: string | null) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (activeQuery) params.set("q", activeQuery);
+    if (activeType !== "all") params.set("type", activeType);
+    params.set("sort", activeSort);
+    if (nextCursor !== undefined) params.set("cursor", nextCursor ?? "");
+
+    fetch(`/api/threat-intel?${params.toString()}`)
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed to load Threat Intel data")))
+      .then((body: { data: PageData }) => { setData(body.data); setError(null); })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoading(false));
+  };
 
   const sync = () => {
     if (syncing || syncJobId) return;
     setSyncing(true);
+    setSyncError(null);
     fetch("/api/threat-intel/sync", { method: "POST" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Sync failed. Check settings."))))
       .then((body: { data?: { jobId?: string } }) => {
@@ -50,7 +72,7 @@ export default function ThreatIntelPage() {
         setSyncing(false);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
+        setSyncError(err instanceof Error ? err.message : String(err));
         setSyncing(false);
       });
   };
@@ -70,8 +92,8 @@ export default function ThreatIntelPage() {
         if (status === "done" || status === "error") {
           setSyncJobId(null);
           setSyncPhase("");
-          if (status === "error") setError("Sync failed. See queue logs.");
-          else load();
+          if (status === "error") setSyncError("Sync failed. See queue logs.");
+          else { setCursor(null); load(); }
           return;
         }
       } catch {
@@ -87,28 +109,25 @@ export default function ThreatIntelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncJobId]);
 
-  const load = () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (activeQuery) params.set("q", activeQuery);
-    if (activeType !== "all") params.set("type", activeType);
-
-    fetch(`/api/threat-intel?${params.toString()}`)
-      .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed to load Threat Intel data")))
-      .then((body: { data: PageData }) => { setData(body.data); setError(null); })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    const timer = window.setTimeout(load, 0);
+    const timer = window.setTimeout(() => { setCursor(null); load(); }, 0);
     return () => window.clearTimeout(timer);
-  }, [activeQuery, activeType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeQuery, activeType, activeSort]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveQuery(query);
     setActiveType(type);
+  };
+
+  const handleNext = () => {
+    if (data?.cursor) setCursor(data.cursor);
+  };
+
+  const handlePrev = () => {
+    setCursor(null);
+    load();
   };
 
   if (error && !data) return <section className="page-section"><h1>{shell("threatIntel")}</h1><p className="status-error p-4 mt-4">{error}</p></section>;
@@ -128,6 +147,18 @@ export default function ThreatIntelPage() {
           </button>
         </div>
       </header>
+
+      {syncJobId && (
+        <div className="panel p-3 space-y-2">
+          <div className="flex items-center justify-between text-xs text-[var(--color-ink-muted)]">
+            <span>{syncPhase || "Syncing..."}</span>
+            <span className="animate-pulse">●</span>
+          </div>
+          <progress className="w-full h-1.5 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-[var(--color-canvas-soft)] [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-[var(--color-primary)] animate-pulse" />
+        </div>
+      )}
+
+      {syncError && <p className="status-error p-3">{syncError}</p>}
 
       <div className="panel p-3">
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
@@ -151,6 +182,15 @@ export default function ThreatIntelPage() {
             <option value="domain">{t("type-domain")}</option>
             <option value="hash">{t("type-hash")}</option>
           </select>
+          <select
+            value={activeSort}
+            onChange={(e) => setActiveSort(e.target.value)}
+            className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-2 sm:w-32"
+          >
+            <option value="score">{t("sort-score")}</option>
+            <option value="newest">{t("sort-newest")}</option>
+            <option value="oldest">{t("sort-oldest")}</option>
+          </select>
           <button type="submit" disabled={loading} className="primary-button px-4 py-2 text-sm flex items-center justify-center gap-2 min-w-[100px]">
             {loading ? <RefreshCw size={16} className="animate-spin" /> : t("search")}
           </button>
@@ -167,7 +207,7 @@ export default function ThreatIntelPage() {
             <p className="text-sm text-[var(--color-ink-muted)] mt-1">{t("no-data-desc")}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="table">
               <thead>
                 <tr>
@@ -181,10 +221,10 @@ export default function ThreatIntelPage() {
               <tbody className="divide-y divide-[var(--color-border)]">
                 {data.indicators.map((ioc) => (
                   <tr key={`${ioc.indicator}-${ioc.type}`} className="group hover:bg-[var(--color-canvas-soft)]">
-                    <td className="td font-medium">
+                    <td className="td font-medium min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[var(--color-primary-deep)]">{ioc.indicator}</span>
-                        <span className="text-[10px] uppercase font-bold tracking-wider bg-[var(--color-canvas-soft)] border border-[var(--color-border)] px-1.5 py-0.5 rounded text-[var(--color-ink-muted)]">
+                        <span className="text-[var(--color-primary-deep)] break-all min-w-0">{ioc.indicator}</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider bg-[var(--color-canvas-soft)] border border-[var(--color-border)] px-1.5 py-0.5 rounded text-[var(--color-ink-muted)] shrink-0">
                           {ioc.type}
                         </span>
                       </div>
@@ -239,6 +279,30 @@ export default function ThreatIntelPage() {
           </div>
         )}
       </div>
+
+      {data && data.indicators.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-[var(--color-ink-muted)]">
+          <span>{t("showing", { count: data.indicators.length })}</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={!cursor || loading}
+              className="outline-button px-3 py-1.5 text-xs disabled:opacity-40 flex items-center gap-1"
+            >
+              <ChevronLeft size={14} /> {t("prev")}
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!data.hasMore || loading}
+              className="outline-button px-3 py-1.5 text-xs disabled:opacity-40 flex items-center gap-1"
+            >
+              {t("next")} <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

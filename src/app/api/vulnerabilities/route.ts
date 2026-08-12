@@ -22,15 +22,19 @@ export async function GET(request: Request): Promise<Response> {
     const effective = await resolveEffectiveConfig(db, config);
     const client = createWazuhClient(effective.wazuh);
     const snapshot = await getAgentSnapshot(db, client);
-    const results = await Promise.all(snapshot.agents.map(async (agent) => {
-      try {
-        const vulnerabilities = await fetchAgentVulnerabilities(effective.wazuh, agent.id, 20);
-        return { vulnerabilities: vulnerabilities.map((v) => ({ ...v, agentId: agent.id, agentName: agent.name })), error: false };
-      } catch (error) {
-        console.error(`[Vulnerabilities] Indexer fetch failed for agent ${agent.id}:`, error);
-        return { vulnerabilities: [], error: true };
-      }
-    }));
+    const results = effective.wazuh.indexer
+      ? await Promise.all(
+          snapshot.agents.map(async (agent) => {
+            try {
+              const vulnerabilities = await fetchAgentVulnerabilities(effective.wazuh, agent.id, 20);
+              return { vulnerabilities: vulnerabilities.map((v) => ({ ...v, agentId: agent.id, agentName: agent.name })), error: false };
+            } catch (error) {
+              console.error(`[Vulnerabilities] Indexer fetch failed for agent ${agent.id}:`, error);
+              return { vulnerabilities: [], error: true };
+            }
+          }),
+        )
+      : [];
     const rows = results.flatMap((result) => result.vulnerabilities);
     rows.sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0));
     return Response.json(

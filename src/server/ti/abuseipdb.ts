@@ -88,18 +88,19 @@ export async function refreshAbuseIpDbBlacklist(
   };
 
   if (!Array.isArray(body?.data)) return 0;
-  let count = 0;
-  for (const row of body.data) {
-    if (!row.ipAddress) continue;
-    await cache.set({
-      indicator: row.ipAddress,
-      type: "ip",
-      abuseScore: row.abuseConfidenceScore ?? 100,
-      abuseCategory: "blacklist",
-      pulseCount: null,
-      sources: ["abuseipdb:blacklist"],
-    });
-    count++;
-  }
-  return count;
+  const verdicts = body.data
+    .map((row) => {
+      if (!row.ipAddress) return null;
+      return {
+        indicator: row.ipAddress,
+        type: "ip" as const,
+        abuseScore: row.abuseConfidenceScore ?? 100,
+        abuseCategory: "blacklist",
+        pulseCount: null,
+        sources: ["abuseipdb:blacklist"],
+      };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null);
+  await cache.setMany(verdicts);
+  return verdicts.length;
 }

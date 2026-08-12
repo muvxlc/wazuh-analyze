@@ -1,25 +1,37 @@
 import "server-only";
 
-import type { TiLookupContext, TiProvider, TiVerdict } from "./provider";
+import type { IocType, TiLookupContext, TiProvider, TiVerdict } from "./provider";
 
 export interface OtxOptions {
   apiKey?: string;
 }
 
+/** OTX API path suffix per indicator type. Non-IP types hit the generic endpoint. */
+const PATH_SUFFIX: Record<IocType, string> = {
+  ip: "IPv4",
+  domain: "domain",
+  hash: "fileSHA256", // OTX accepts SHA256 for hash; MD5 falls through as a secondary attempt
+};
+
 export function createOtxProvider(options: OtxOptions = {}): TiProvider {
   return {
     name: "otx",
     async lookup(ctx: TiLookupContext, fetchFn = fetch): Promise<TiVerdict | null> {
-      if (ctx.type !== "ip") return null;
+      // OTX requires the API key for every indicator type.
+      if (!options.apiKey) return null;
 
+      const suffix = PATH_SUFFIX[ctx.type];
       const url = new URL(
-        `https://otx.alienvault.com/api/v1/indicators/IPv4/${encodeURIComponent(ctx.indicator)}/general`,
+        `https://otx.alienvault.com/api/v1/indicators/${suffix}/${encodeURIComponent(ctx.indicator)}/general`,
       );
-      const headers: Record<string, string> = {};
-      if (options.apiKey) headers["X-OTX-API-KEY"] = options.apiKey;
 
-      const res = await fetchFn(url.toString(), { method: "GET", headers });
+      const res = await fetchFn(url.toString(), {
+        method: "GET",
+        headers: { "X-OTX-API-KEY": options.apiKey },
+      });
 
+      // Not found / invalid indicator → no verdict (not an error).
+      if (res.status === 404) return null;
       if (!res.ok) return null;
 
       const body = (await res.json()) as {
@@ -32,7 +44,7 @@ export function createOtxProvider(options: OtxOptions = {}): TiProvider {
 
       return {
         indicator: ctx.indicator,
-        type: "ip",
+        type: ctx.type,
         abuseScore: pulseCount > 0 ? Math.min(pulseCount, 100) : 0,
         abuseCategory: body.reputation?.reputation ?? null,
         pulseCount,

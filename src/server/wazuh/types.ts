@@ -13,6 +13,10 @@ export interface WazuhConfig {
     url: URL;
     username: string;
     password: string;
+    /** Indexer-specific CA bundle path; falls back to `caPath` when absent. */
+    caPath?: string | null;
+    /** Indexer-specific TLS skip-verify; falls back to `allowInsecureTls` when absent. */
+    allowInsecureTls?: boolean;
   } | null;
 }
 

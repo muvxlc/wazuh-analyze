@@ -40,6 +40,11 @@
     "mitre": "MITRE ATT&CK",
     "compliance": "Compliance"
   },
+  "alerts": {
+    "back": "กลับไปยังการแจ้งเตือน",
+    "next": "ถัดไป",
+    "page": "หน้า {n}"
+  },
   "queues": {
     "title": "คิว",
     "empty": "ยังไม่มีคิวงาน",
@@ -200,7 +205,17 @@
     "linked-alerts": "การแจ้งเตือนที่เกี่ยวข้อง",
     "agent": "ตัวแทน (Agent)",
     "rule": "กฎ",
-    "load-error": "โหลดข้อมูลเหตุการณ์ไม่สำเร็จ"
+    "load-error": "โหลดข้อมูลเหตุการณ์ไม่สำเร็จ",
+    "proposedActions": "การดำเนินการที่แนะนำ",
+    "approve": "อนุมัติ",
+    "reject": "ปฏิเสธ",
+    "analystNotes": "บันทึกของนักวิเคราะห์",
+    "loadingNotes": "กำลังโหลดบันทึก…",
+    "noNotes": "ยังไม่มีบันทึก",
+    "notePlaceholder": "เพิ่มบันทึก…",
+    "addNote": "เพิ่มบันทึก",
+    "noteSaved": "บันทึกเรียบร้อยแล้ว",
+    "noteSaveFailed": "บันทึกไม่สำเร็จ"
   },
   "dashboard": {
     "overview-kicker": "ภาพรวมระบบปฏิบัติการ",
@@ -231,7 +246,14 @@
     "col-title": "รายละเอียด",
     "col-agent": "Agent",
     "col-cvss": "CVSS",
-    "col-status": "สถานะ"
+    "col-status": "สถานะ",
+    "summary-total": "ทั้งหมด",
+    "summary-critical": "วิกฤต",
+    "summary-high": "สูง",
+    "summary-medium": "กลาง",
+    "summary-low": "ต่ำ",
+    "showing-count": "แสดง {count} จาก {total}",
+    "col-published": "เผยแพร่"
   },
   "posture": {
     "loading": "กำลังโหลดข้อมูลสถานะความปลอดภัย...",
@@ -242,21 +264,37 @@
     "stale": "รายชื่อ Agent เป็นข้อมูลเก่า",
     "no-agents": "ไม่พบ Agent",
     "no-data": "ไม่มีข้อมูล",
-    "sca": "การประเมินการตั้งค่า",
-    "fim": "ตรวจสอบความสมบูรณ์ไฟล์",
-    "rootcheck": "Malware / Rootcheck"
+    "summary": "สรุปสถานะความปลอดภัย",
+    "sca": "SCA",
+    "sca-label": "การละเมิดการตั้งค่า",
+    "sca-score": "คะแนน SCA",
+    "sca-subtitle": "กฎการประเมินการตั้งค่าความปลอดภัย",
+    "fim": "FIM",
+    "fim-label": "การเปลี่ยนแปลงไฟล์",
+    "fim-subtitle": "เหตุการณ์การตรวจสอบความสมบูรณ์ของไฟล์",
+    "rootcheck": "Rootcheck",
+    "rootcheck-label": "ตัวชี้วัด Rootkit",
+    "rootcheck-subtitle": "การตรวจสอบ rootkit และมัลแวร์ในระบบ",
+    "showing-count": "แสดง {count} จาก {total}"
   },
   "mitre": {
     "loading": "กำลังโหลดข้อมูล MITRE...",
     "subtitle": "เทคนิคและยุทธวิธีที่ AI ระบุจากการวิเคราะห์ alert ล่าสุด",
     "refresh": "รีเฟรช",
+    "range-label": "ช่วงเวลา",
     "range-7d": "7 วัน",
     "range-30d": "30 วัน",
     "range-90d": "90 วัน",
     "total-count": "จำนวน alert รวม",
     "no-data": "ไม่พบเทคนิค MITRE",
     "no-data-desc": "เรียกการวิเคราะห์ AI บน alert เพื่อเติมข้อมูลเมทริกซ์นี้",
-    "unknown-technique": "เทคนิคที่ไม่รู้จัก"
+    "unknown-technique": "เทคนิคที่ไม่รู้จัก",
+    "summary-label": "สรุปเมตริก",
+    "metric-total-alerts": "Alert รวม",
+    "metric-techniques": "เทคนิค",
+    "metric-tactics": "ยุทธวิธี",
+    "metric-top-tactic": "ยุทธวิธีสูงสุด",
+    "row-cap-notice": "แสดง {count} แถวแรกจากทั้งหมด {total} แถว"
   },
   "compliance": {
     "loading": "กำลังโหลดข้อมูล Compliance...",
@@ -266,7 +304,22 @@
     "range-30d": "30 วัน",
     "range-90d": "90 วัน",
     "no-data": "ไม่พบข้อมูล Compliance",
-    "no-data-desc": "ข้อมูลจะแสดงเมื่อ Wazuh alert มี mapping ของ framework"
+    "no-data-desc": "ข้อมูลจะแสดงเมื่อ Wazuh alert มี mapping ของ framework",
+    "summary-label": "ภาพรวม Compliance",
+    "overall-score": "คะแนนรวม",
+    "passed": "ผ่าน",
+    "failed": "ไม่ผ่าน",
+    "total-checks": "การตรวจสอบทั้งหมด",
+    "policies": "นโยบาย",
+    "status-pass": "ผ่าน",
+    "status-warn": "เตือน",
+    "status-fail": "ไม่ผ่าน",
+    "score": "คะแนน",
+    "agents-applied": "เอเจนต์ที่ติดตั้ง",
+    "frameworks": "เฟรมเวิร์ก",
+    "more": "อื่นๆ",
+    "pass-fail": "ผ่าน {pass} / ไม่ผ่าน {fail}",
+    "showing-count": "แสดง {count} จาก {total}"
   },
   "ti": {
     "loading": "กำลังโหลดข้อมูล Threat Intel...",
@@ -284,7 +337,13 @@
     "col-category": "หมวดหมู่",
     "col-sources": "แหล่งที่มา",
     "col-fetched": "อัปเดตล่าสุด",
-    "pulses": "pulses"
+    "pulses": "pulses",
+    "sort-score": "เรียงตามคะแนน",
+    "sort-newest": "ใหม่สุดก่อน",
+    "sort-oldest": "เก่าสุดก่อน",
+    "prev": "ก่อนหน้า",
+    "next": "ถัดไป",
+    "showing": "แสดง {count} ตัวบ่งชี้"
   },
   "hygiene": {
     "loading": "กำลังโหลดข้อมูลสุขอนามัยไอที...",
@@ -300,6 +359,7 @@
     "ports": "พอร์ต",
     "services": "บริการ",
     "hardware": "ฮาร์ดแวร์",
-    "os": "ระบบปฏิบัติการ"
+    "os": "ระบบปฏิบัติการ",
+    "summary": "สรุป"
   }
 }

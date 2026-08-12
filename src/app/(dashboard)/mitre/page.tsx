@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { RefreshCw, LayoutGrid, AlertCircle, Info, Hash } from "lucide-react";
+import { RefreshCw, AlertCircle, Hash, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 interface MitreTechnique {
@@ -25,19 +25,30 @@ export default function MitrePage() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30d");
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     fetch(`/api/mitre?range=${encodeURIComponent(range)}`)
       .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed to load MITRE data")))
       .then((body: { data: PageState }) => { setData(body.data); setError(null); })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
-  };
+  }, [range]);
 
   useEffect(() => {
     const timer = window.setTimeout(load, 0);
     return () => window.clearTimeout(timer);
-  }, [range]);
+  }, [load]);
+
+  const summary = useMemo(() => {
+    if (!data) return null;
+    const techniques = data.techniques;
+    const totalAlerts = techniques.reduce((sum, t) => sum + t.count, 0);
+    const tactics = new Set(techniques.map((t) => t.tactic || "Unknown")).size;
+    const topTactic = techniques.length > 0
+      ? [...techniques].sort((a, b) => b.count - a.count)[0].tactic
+      : null;
+    return { totalAlerts, tactics, topTactic, techniqueCount: techniques.length };
+  }, [data]);
 
   const tactics = useMemo(() => {
     if (!data) return [];
@@ -47,63 +58,180 @@ export default function MitrePage() {
       if (!grouped.has(tactic)) grouped.set(tactic, []);
       grouped.get(tactic)!.push(tech);
     });
-    return Array.from(grouped.entries()).sort((a, b) => b[1].reduce((sum, t) => sum + t.count, 0) - a[1].reduce((sum, t) => sum + t.count, 0));
+    return Array.from(grouped.entries()).sort((a, b) =>
+      b[1].reduce((sum, t) => sum + t.count, 0) -
+      a[1].reduce((sum, t) => sum + t.count, 0)
+    );
   }, [data]);
 
-  if (error && !data) return <section className="page-section"><h1>{shell("mitre")}</h1><p className="status-error p-4 mt-4">{error}</p></section>;
-  if (!data) return <section className="page-section"><h1>{shell("mitre")}</h1><p className="panel p-4 mt-4 text-sm text-[var(--color-ink-muted)] flex items-center gap-2" role="status"><RefreshCw className="animate-spin" size={16} />{t("loading")}</p></section>;
+  const rows = tactics.flatMap(([tacticName, items]) => {
+    const total = items.reduce((sum, item) => sum + item.count, 0);
+    const sortedItems = [...items].sort((a, b) => b.count - a.count);
+    return sortedItems.map((tech, index) => ({ tacticName, tech, index, total, rowSpan: sortedItems.length }));
+  });
+  const visibleRows = rows.slice(0, 50);
+
+  if (error && !data) {
+    return (
+      <section className="page-section">
+        <h1>{shell("mitre")}</h1>
+        <div className="panel p-4 mt-4 flex items-start gap-3 status-error" role="alert">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <p className="text-sm">{error}</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!data) {
+    return (
+      <section className="page-section">
+        <h1>{shell("mitre")}</h1>
+        <div className="panel p-6 mt-4 flex items-center gap-3 text-sm text-[var(--color-ink-muted)]" role="status" aria-live="polite">
+          <RefreshCw size={16} className="animate-spin" />
+          <span>{t("loading")}</span>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="page-section space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1>{shell("mitre")}</h1>
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{t("subtitle")}</p>
+    <section className="page-section space-y-6" aria-label={shell("mitre")}>
+      {/* Header: title + controls + summary inline */}
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1>{shell("mitre")}</h1>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{t("subtitle")}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="mitre-range" className="sr-only">{t("range-label")}</label>
+            <select
+              id="mitre-range"
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9 min-w-[100px]"
+              disabled={loading}
+            >
+              <option value="7d">{t("range-7d")}</option>
+              <option value="30d">{t("range-30d")}</option>
+              <option value="90d">{t("range-90d")}</option>
+            </select>
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="outline-button p-2 h-9"
+              title={t("refresh")}
+              aria-label={t("refresh")}
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <select value={range} onChange={(e) => setRange(e.target.value)} className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9" disabled={loading}>
-            <option value="7d">{t("range-7d")}</option>
-            <option value="30d">{t("range-30d")}</option>
-            <option value="90d">{t("range-90d")}</option>
-          </select>
-          <button type="button" onClick={load} disabled={loading} className="outline-button p-2 h-9" title={t("refresh")} aria-label={t("refresh")}><RefreshCw size={16} className={loading ? "animate-spin" : ""} /></button>
-        </div>
-      </header>
 
-      {error && <p className="status-error p-3">{error}</p>}
+        {error && (
+          <div className="panel p-3 flex items-center gap-2 text-sm status-error" role="alert">
+            <AlertCircle size={16} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Compact summary strip */}
+        {summary && summary.totalAlerts > 0 && (
+          <div
+            className="panel p-3 flex flex-wrap items-center gap-x-6 gap-y-2"
+            role="group"
+            aria-label={t("summary-label")}
+          >
+            <div>
+              <span className="text-xs text-[var(--color-ink-muted)]">{t("metric-total-alerts")} </span>
+              <span className="text-lg font-bold text-[var(--color-ink)]">{summary.totalAlerts.toLocaleString()}</span>
+            </div>
+            <div className="w-px h-6 bg-[var(--color-hairline)]" aria-hidden="true" />
+            <div>
+              <span className="text-xs text-[var(--color-ink-muted)]">{t("metric-techniques")} </span>
+              <span className="text-lg font-bold text-[var(--color-ink)]">{summary.techniqueCount}</span>
+            </div>
+            <div>
+              <span className="text-xs text-[var(--color-ink-muted)]">{t("metric-tactics")} </span>
+              <span className="text-lg font-bold text-[var(--color-ink)]">{summary.tactics}</span>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-ink-muted)]">
+              <TrendingUp size={13} aria-hidden="true" />
+              <span>{t("metric-top-tactic")}:</span>
+              <span className="font-semibold text-[var(--color-ink)] truncate max-w-[180px]" title={summary.topTactic ?? ""}>
+                {summary.topTactic ?? "—"}
+              </span>
+            </div>
+          </div>
+        )}
+      </header>
 
       {tactics.length === 0 ? (
         <div className="panel p-12 flex flex-col items-center justify-center text-center">
-          <LayoutGrid size={32} className="text-[var(--color-border)] mb-4" />
           <p className="text-sm font-medium">{t("no-data")}</p>
           <p className="text-sm text-[var(--color-ink-muted)] mt-1">{t("no-data-desc")}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
-          {tactics.map(([tacticName, items]) => {
-            const total = items.reduce((sum, item) => sum + item.count, 0);
-            return (
-              <section key={tacticName} className="panel flex flex-col">
-                <header className="flex items-center justify-between border-b border-[var(--color-border)] p-3 bg-[var(--color-canvas-soft)]">
-                  <h2 className="text-sm font-bold truncate flex-1" title={tacticName}>{tacticName}</h2>
-                  <span className="text-xs font-semibold bg-[var(--color-canvas)] border border-[var(--color-border)] px-1.5 py-0.5 rounded-full" title={t("total-count")}>{total}</span>
-                </header>
-                <ul className="divide-y divide-[var(--color-border)] text-sm">
-                  {items.map((tech, i) => (
-                    <li key={`${tech.techniqueId}-${i}`} className="flex flex-col p-3 hover:bg-[var(--color-canvas-soft)] transition-colors">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <Link href={`/alerts?search=${encodeURIComponent(tech.techniqueId)}`} className="font-semibold text-[var(--color-primary-deep)] hover:underline flex items-center gap-1">
-                          <Hash size={12} /> {tech.techniqueId}
-                        </Link>
-                        <span className="text-xs font-medium bg-[var(--color-border)] px-1.5 rounded-md leading-relaxed">{tech.count}</span>
-                      </div>
-                      <p className="text-[var(--color-ink-muted)] text-xs line-clamp-2" title={tech.techniqueName ?? ""}>{tech.techniqueName ?? t("unknown-technique")}</p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+        <div className="panel overflow-hidden">
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th className="th sticky left-0 z-20 bg-[var(--color-canvas)]">Tactic</th>
+                  <th className="th">Technique</th>
+                  <th className="th text-right">Alerts</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-hairline-cool)]">
+                {visibleRows.map(({ tacticName, tech, index, total, rowSpan }, rowIndex) => (
+                  <tr key={`${tacticName}-${tech.techniqueId}`} className="group hover:bg-[var(--color-canvas-soft)] transition-colors">
+                    {index === 0 && (
+                      <td
+                        className="td sticky left-0 z-10 bg-[var(--color-canvas)] align-middle py-3 font-medium text-[var(--color-ink)] whitespace-nowrap"
+                        rowSpan={Math.min(rowSpan, visibleRows.length - rowIndex)}
+                      >
+                        <span className="text-xs text-[var(--color-ink-muted)] block">{tacticName}</span>
+                        <span className="text-[10px] text-[var(--color-ink-faint)]">
+                          {total} {t("total-count")}
+                        </span>
+                      </td>
+                    )}
+                    <td className="td py-3">
+                      <Link
+                        href={`/alerts?search=${encodeURIComponent(tech.techniqueId)}`}
+                        className="inline-flex items-center gap-1.5 font-semibold text-[var(--color-primary-deep)] hover:underline"
+                        aria-label={`${tech.techniqueId} - ${tech.techniqueName ?? t("unknown-technique")}`}
+                      >
+                        <Hash size={13} className="shrink-0" />
+                        <span className="text-sm truncate">{tech.techniqueId}</span>
+                      </Link>
+                      <p
+                        className="mt-0.5 text-xs text-[var(--color-ink-muted)] line-clamp-1"
+                        title={tech.techniqueName ?? ""}
+                      >
+                        {tech.techniqueName ?? t("unknown-technique")}
+                      </p>
+                    </td>
+                    <td className="td py-3 text-right">
+                      <span
+                        className="inline-block min-w-[2.5rem] text-center text-sm font-semibold bg-[var(--color-canvas-soft)] border border-[var(--color-hairline)] px-2 py-0.5 rounded"
+                        aria-label={`${tech.count} alerts`}
+                      >
+                        {tech.count}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > visibleRows.length && (
+            <p className="border-t border-[var(--color-hairline-cool)] px-4 py-2 text-xs text-[var(--color-ink-muted)]" role="status">
+              {t("row-cap-notice", { count: visibleRows.length, total: rows.length })}
+            </p>
+          )}
         </div>
       )}
     </section>

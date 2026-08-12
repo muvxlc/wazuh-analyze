@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <p className={`wazuh-status wazuh-status-${summary.health.connectionStatus}`} aria-label={`Wazuh API ${summary.health.connectionStatus}: ${summary.health.reason}`}>
           <span className="wazuh-status-dot" aria-hidden="true" />
           <span>API: <strong>{summary.health.connectionStatus}</strong></span>
