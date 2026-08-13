@@ -175,7 +175,7 @@ export default function ThreatIntelPage() {
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-2 sm:w-32"
+            className="rounded sm:w-32"
           >
             <option value="all">{t("type-all")}</option>
             <option value="ip">{t("type-ip")}</option>
@@ -185,7 +185,7 @@ export default function ThreatIntelPage() {
           <select
             value={activeSort}
             onChange={(e) => setActiveSort(e.target.value)}
-            className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-2 sm:w-32"
+            className="rounded sm:w-32"
           >
             <option value="score">{t("sort-score")}</option>
             <option value="newest">{t("sort-newest")}</option>

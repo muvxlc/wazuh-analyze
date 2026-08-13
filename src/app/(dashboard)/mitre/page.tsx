@@ -104,13 +104,13 @@ export default function MitrePage() {
             <h1>{shell("mitre")}</h1>
             <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{t("subtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
             <label htmlFor="mitre-range" className="sr-only">{t("range-label")}</label>
             <select
               id="mitre-range"
               value={range}
               onChange={(e) => setRange(e.target.value)}
-              className="text-sm border border-[var(--color-input-border)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9 min-w-[100px]"
+              className="rounded w-full sm:w-auto sm:min-w-[8rem]"
               disabled={loading}
             >
               <option value="7d">{t("range-7d")}</option>

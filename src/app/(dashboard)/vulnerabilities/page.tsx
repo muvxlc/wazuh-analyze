@@ -179,13 +179,13 @@ export default function VulnerabilitiesPage() {
           )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <label htmlFor="agentFilter" className="sr-only">{t("filter-agent")}</label>
             <select
               id="agentFilter"
               value={agentFilter}
               onChange={(e) => setAgentFilter(e.target.value)}
-              className="text-sm border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9"
+              className="rounded w-full sm:w-auto sm:min-w-[12rem] max-w-[16rem]"
             >
               <option value="all">{t("filter-agent-all")}</option>
               {data?.agents.map((a) => (
@@ -199,7 +199,7 @@ export default function VulnerabilitiesPage() {
               id="severityFilter"
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="text-sm border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9"
+              className="rounded w-full sm:w-auto"
             >
               <option value="all">{t("filter-severity-all")}</option>
               <option value="critical">{t("severity-critical")}</option>

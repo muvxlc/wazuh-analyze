@@ -84,9 +84,9 @@ export default function SocDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end w-full sm:w-auto">
         <select
-          className="w-auto py-1 text-sm"
+          className="w-full sm:w-auto"
           value={range}
           onChange={(e) => setRange(e.target.value as "24h" | "7d" | "30d")}
           aria-label="Time range"

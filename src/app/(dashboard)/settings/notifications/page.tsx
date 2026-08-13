@@ -231,7 +231,7 @@ export default function SettingsNotificationsPage() {
               <label htmlFor="notification-channel-type" className="text-sm text-[var(--color-ink-muted)]">Channel Type</label>
               <select
                 id="notification-channel-type"
-                className="auth-input text-sm"
+                className="auth-input"
                 value={type}
                 onChange={(e) => setType(e.target.value as "discord" | "telegram")}
               >
@@ -334,7 +334,7 @@ export default function SettingsNotificationsPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <label htmlFor="notification-event-type" className="text-sm text-[var(--color-ink-muted)]">Event Type</label>
-                <select id="notification-event-type" className="auth-input text-sm" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+                <select id="notification-event-type" className="auth-input" value={eventType} onChange={(e) => setEventType(e.target.value)}>
                   <option value="alert.high_severity">High Severity Alert</option>
                   <option value="incident.created">Incident Created</option>
                   <option value="incident.escalated">Incident Escalated</option>
@@ -343,7 +343,7 @@ export default function SettingsNotificationsPage() {
               </div>
               <div className="space-y-1">
                 <label htmlFor="notification-rule-channel" className="text-sm text-[var(--color-ink-muted)]">Channel</label>
-                <select id="notification-rule-channel" className="auth-input text-sm" value={selectedChannel} onChange={(e) => setSelectedChannel(e.target.value)}>
+                <select id="notification-rule-channel" className="auth-input" value={selectedChannel} onChange={(e) => setSelectedChannel(e.target.value)}>
                   {channels.map((c) => (
                     <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                   ))}

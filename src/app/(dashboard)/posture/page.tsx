@@ -204,13 +204,13 @@ export default function PosturePage() {
           <h1>{shell("posture")}</h1>
           <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{t("subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
           <label htmlFor="posture-agent" className="sr-only">{t("agent")}</label>
           <select
             id="posture-agent"
             value={selectedAgent}
             onChange={(e) => setSelectedAgent(e.target.value)}
-            className="text-sm border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded px-2 py-1.5 h-9 min-w-[200px]"
+            className="rounded w-full sm:w-auto sm:min-w-[12rem] max-w-[16rem]"
           >
             {snapshot.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name} ({agent.id})</option>)}
           </select>
