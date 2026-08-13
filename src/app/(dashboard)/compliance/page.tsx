@@ -176,7 +176,7 @@ export default function CompliancePage() {
         </div>
       ) : (
         <div className="panel overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="table">
               <thead>
                 <tr>

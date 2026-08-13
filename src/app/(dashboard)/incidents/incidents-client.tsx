@@ -111,9 +111,9 @@ export function IncidentsClient({ canManage }: { readonly canManage: boolean }) 
       )}
 
       {status === "success" && incidents.length > 0 && (
-        <div className="overflow-x-auto rounded-[8px] border border-[var(--color-hairline)]">
+        <div className="table-scroll">
           <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 z-10 border-b border-[var(--color-hairline)] bg-[var(--color-canvas-soft)] text-xs uppercase text-[var(--color-ink-muted)]">
+            <thead className="border-b border-[var(--color-hairline)] bg-[var(--color-canvas-soft)] text-xs uppercase text-[var(--color-ink-muted)]">
               <tr>
                 <th className="p-4">Title</th>
                 <th className="p-4">{t("severity")}</th>
