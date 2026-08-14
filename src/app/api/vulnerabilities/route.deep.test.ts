@@ -54,6 +54,20 @@ const baseConfig = {
   maintenanceBatchSize: 100,
   socAutoAnalyze: false,
   socAutoAnalyzeMinLevel: 5,
+  socAutoCreateIncident: true,
+  socAutoIncidentMinConfidence: 0.85,
+  socAutoIncidentRequireCorroboration: true,
+  fpMemoryEnabled: false,
+  fpMemoryTtlDays: 14,
+  fpMemorySeverityFloor: 12,
+  ti: {
+    providers: [],
+    abuseipdbKey: null,
+    otxKey: null,
+    greynoiseKey: null,
+    minLevel: 7,
+    cacheTtlDays: 86400,
+  },
   settingsEncryptionKey: "k".repeat(32),
 };
 

@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Generic 5s countdown toast with an Undo + Dismiss action. Lifted from alerts for reuse.
 export function UndoToast({
   message,
+  undoLabel = "Undo",
+  dismissLabel = "Dismiss",
   onUndo,
   onClose,
 }: {
   readonly message: string;
+  readonly undoLabel?: string;
+  readonly dismissLabel?: string;
   readonly onUndo: () => void;
   readonly onClose: () => void;
 }) {
@@ -40,10 +45,10 @@ export function UndoToast({
       <p style={{ margin: "0 0 var(--space-sm) 0" }}>{message}</p>
       <div style={{ display: "flex", gap: "var(--space-sm)" }}>
         <button type="button" onClick={onUndo}>
-          Undo
+          {undoLabel}
         </button>
         <button type="button" onClick={onClose} className="outline-button">
-          Dismiss
+          {dismissLabel}
         </button>
       </div>
       <div

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createDatabase } from "../../../server/db/client";
 import { loadConfig } from "../../../server/config";
 import { authenticateRequest } from "../../../server/auth/authenticate";
-import { listAlerts } from "../../../server/alerts/query";
+import { listAlerts, listAlertGroups } from "../../../server/alerts/query";
 import { toErrorResponse } from "../../../server/http/error-response";
 import { SESSION_COOKIE } from "../../../server/auth/cookies";
 import { createWazuhClient } from "../../../server/wazuh/adapter";
@@ -21,6 +21,8 @@ const querySchema = z.object({
   tags: z.string().optional().transform((value) => value ? value.split(",").map((tag) => tag.trim()).filter(Boolean) : undefined),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().optional(),
+  group: z.coerce.boolean().optional(),
+  windowMinutes: z.coerce.number().int().min(1).max(1440).optional(),
 });
 
 export async function GET(request: Request): Promise<Response> {
@@ -41,7 +43,18 @@ export async function GET(request: Request): Promise<Response> {
       agentIds = resolveAgentIdsForGroups(index, parsed.groups);
     }
 
-    const data = await listAlerts(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, {
+    const actor = { userId: user.id, role: user.role, permissions: new Set(user.permissions) };
+
+    if (parsed.group) {
+      const groups = await listAlertGroups(db, actor, {
+        ...parsed,
+        agentIds,
+        groups: agentIds ? undefined : parsed.groups,
+      });
+      return Response.json({ data: groups }, { headers: { "cache-control": "no-store" } });
+    }
+
+    const data = await listAlerts(db, actor, {
       ...parsed,
       agentIds,
       groups: agentIds ? undefined : parsed.groups,

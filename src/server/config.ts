@@ -20,9 +20,25 @@ const environmentSchema = z
       .default("false")
       .transform((value) => value === "true"),
     SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(7),
+    SOC_AUTO_CREATE_INCIDENT: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    SOC_AUTO_INCIDENT_MIN_CONFIDENCE: z.number().min(0).max(1).default(0.85),
+    SOC_AUTO_INCIDENT_REQUIRE_CORROBORATION: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    FP_MEMORY_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    FP_MEMORY_TTL_DAYS: positiveInteger.default(14),
+    FP_MEMORY_SEVERITY_FLOOR: positiveInteger.default(12),
     TI_PROVIDERS: z.string().default("abuseipdb,otx"),
     ABUSEIPDB_API_KEY: z.string().optional(),
     OTX_API_KEY: z.string().optional(),
+    GREYNOISE_API_KEY: z.string().optional(),
     TI_MIN_LEVEL: positiveInteger.default(7),
     TI_CACHE_TTL_DAYS: positiveInteger.default(30),
     WAZUH_API_URL: z.url(),
@@ -74,10 +90,17 @@ export interface AppConfig {
   maintenanceBatchSize: number;
   socAutoAnalyze: boolean;
   socAutoAnalyzeMinLevel: number;
+  socAutoCreateIncident: boolean;
+  socAutoIncidentMinConfidence: number;
+  socAutoIncidentRequireCorroboration: boolean;
+  fpMemoryEnabled: boolean;
+  fpMemoryTtlDays: number;
+  fpMemorySeverityFloor: number;
   ti?: {
     providers: string[];
     abuseipdbKey: string | null;
     otxKey: string | null;
+    greynoiseKey: string | null;
     minLevel: number;
     cacheTtlDays: number;
   };
@@ -122,10 +145,17 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     maintenanceBatchSize: environment.MAINTENANCE_BATCH_SIZE,
     socAutoAnalyze: environment.SOC_AUTO_ANALYZE,
     socAutoAnalyzeMinLevel: environment.SOC_AUTO_ANALYZE_MIN_LEVEL,
+    socAutoCreateIncident: environment.SOC_AUTO_CREATE_INCIDENT,
+    socAutoIncidentMinConfidence: environment.SOC_AUTO_INCIDENT_MIN_CONFIDENCE,
+    socAutoIncidentRequireCorroboration: environment.SOC_AUTO_INCIDENT_REQUIRE_CORROBORATION,
+    fpMemoryEnabled: environment.FP_MEMORY_ENABLED,
+    fpMemoryTtlDays: environment.FP_MEMORY_TTL_DAYS,
+    fpMemorySeverityFloor: environment.FP_MEMORY_SEVERITY_FLOOR,
     ti: {
       providers: environment.TI_PROVIDERS.split(",").map((s) => s.trim()).filter(Boolean),
       abuseipdbKey: environment.ABUSEIPDB_API_KEY?.trim() || null,
       otxKey: environment.OTX_API_KEY?.trim() || null,
+      greynoiseKey: environment.GREYNOISE_API_KEY?.trim() || null,
       minLevel: environment.TI_MIN_LEVEL,
       cacheTtlDays: environment.TI_CACHE_TTL_DAYS,
     },

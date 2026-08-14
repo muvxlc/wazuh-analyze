@@ -21,6 +21,7 @@ export const notificationEventTypeEnum = pgEnum("notification_event_type", [
   "alert.high_severity",
   "incident.created",
   "incident.escalated",
+  "incident.opened",
   "verdict.confident_real",
   "report.weekly",
 ]);

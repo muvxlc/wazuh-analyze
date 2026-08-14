@@ -17,11 +17,14 @@ import { writeAuditEvent } from "../audit/audit-service";
 import { enqueueNotification } from "../daemon/queue";
 import { getRuleMitreTechniques, mergeMitreTechniques } from "../mitre/rule-map";
 import type { RequestMetadata } from "../http/request-metadata";
+import { checkFpMatch, shouldApplyFp } from "../fp/check";
 
 export interface AnalyzeOptions {
   connectionId?: string;
   /** Default true; set false to skip Wazuh/TI/correlation enrichment. */
   enrich?: boolean;
+  /** Break-glass: skip FP-memory soft-suppress (manual rerun). */
+  force?: boolean;
 }
 
 export interface AnalyzeDependencies {
@@ -31,7 +34,9 @@ export interface AnalyzeDependencies {
 }
 
 /** Accepts either a raw encryption key (legacy callers) or a full config object. */
-export type AnalyzeConfig = string | Pick<AppConfig, "settingsEncryptionKey" | "wazuh" | "ti">;
+export type AnalyzeConfig =
+  | string
+  | Pick<AppConfig, "settingsEncryptionKey" | "wazuh" | "ti" | "fpMemoryEnabled" | "fpMemorySeverityFloor">;
 
 export async function runAlertAnalysis(
   db: Database,
@@ -41,7 +46,7 @@ export async function runAlertAnalysis(
   metadata: RequestMetadata,
   config: AnalyzeConfig,
   deps: AnalyzeDependencies = {},
-): Promise<{ id: string; alertId: string; verdict: AiVerdict; enrichment?: { iocLookups: TiVerdict[]; networkFrequency?: { count: number; windowMinutes: number } | null } }> {
+): Promise<{ id: string; alertId: string; verdict: AiVerdict; fpSuppressedSignatureId: string | null; enrichment?: { iocLookups: TiVerdict[]; networkFrequency?: { count: number; windowMinutes: number } | null } }> {
   requirePermission(actor.permissions, "alerts.analyze");
 
   const encryptionKey =
@@ -122,6 +127,25 @@ export async function runAlertAnalysis(
     detail: { analysisId: row.id, connectionId: conn.id, model: conn.model },
   });
 
+  // FP-memory soft-suppress: when a live, enabled, below-floor FP signature
+  // matches this alert, set the in-memory flag so the existing notify gate
+  // below AND the auto-IR-draft gate in the queue both skip. The LLM already
+  // ran; the persisted verdict row above reflects the model's real opinion.
+  // We NEVER drop or auto-resolve the alert. `force` (manual rerun) bypasses.
+  // The master toggle (fpMemoryEnabled, default false) gates everything.
+  let fpSuppressedSignatureId: string | null = null;
+  if (!options.force && typeof config !== "string" && config.fpMemoryEnabled && alert.ruleId) {
+    const fp = await checkFpMatch(
+      db,
+      { ruleId: alert.ruleId, agentId: alert.agentId ?? null, level: alert.level },
+      { enabled: true },
+    );
+    if (fp && shouldApplyFp(fp, alert.level, config.fpMemorySeverityFloor, new Date())) {
+      verdict.likelyFalsePositive = true;
+      fpSuppressedSignatureId = fp.id;
+    }
+  }
+
   if (!verdict.likelyFalsePositive && typeof verdict.confidence === "number" && verdict.confidence >= 0.8) {
     void enqueueNotification(
       {
@@ -138,6 +162,7 @@ export async function runAlertAnalysis(
     id: row.id,
     alertId,
     verdict,
+    fpSuppressedSignatureId,
     ...(context && (context.iocLookups.length > 0 || context.sections.networkFrequency)
       ? {
           enrichment: {

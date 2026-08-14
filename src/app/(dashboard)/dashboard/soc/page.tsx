@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { 
+import Link from "next/link";
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import { SEVERITY_COLORS, severityFromLevel, severityLabel } from "../../../../server/alerts/severity-mapper";
@@ -115,11 +116,11 @@ export default function SocDashboardPage() {
           </p>
           <p className="text-xs text-[var(--color-ink-muted-2)] mt-1">vs human overrides</p>
         </div>
-        <div className="panel p-5">
+        <Link href="/incidents?status=open" className="panel p-5 transition-colors hover:bg-[var(--color-canvas-soft)]">
           <p className="text-sm font-medium text-[var(--color-ink-muted)] mb-1">Incident Backlog</p>
           <p className="text-3xl font-semibold">{metrics.incidentBacklog}</p>
-          <p className="text-xs text-[var(--color-ink-muted-2)] mt-1">Open investigations</p>
-        </div>
+          <p className="text-xs text-[var(--color-ink-muted-2)] mt-1">Open investigations →</p>
+        </Link>
       </div>
 
       <div className="panel p-6">

@@ -3,6 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Languages } from "lucide-react";
 import type { AiVerdict } from "../../server/ai/analysis";
+import { MarkFpButton } from "./mark-fp-button";
 
 interface QueueProgress {
   phase: string;
@@ -195,6 +196,7 @@ export function AlertAnalysisPanel({ alertId, canAnalyze }: AlertAnalysisPanelPr
               {loading ? progress?.phase === "loading" || progress?.phase === "processing" ? "Processing..." : "Queued..." : "Analyze"}
             </button>
           )}
+          <MarkFpButton alertId={alertId} />
         </div>
       </div>
       {caseMessage && (

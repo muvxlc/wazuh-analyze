@@ -6,6 +6,7 @@ import { transitionIncident } from "../../../../../server/incidents/workflow";
 import { assertCsrfSafe } from "../../../../../server/auth/csrf";
 import { toErrorResponse } from "../../../../../server/http/error-response";
 import { SESSION_COOKIE } from "../../../../../server/auth/cookies";
+import { enqueueNotification } from "../../../../../server/daemon/queue";
 
 const bodySchema = z.object({
   to: z.enum(["investigating", "mitigated", "resolved", "open"]),
@@ -36,6 +37,20 @@ export async function POST(
         userAgent: request.headers.get("user-agent"),
       },
     );
+
+    // Notify on reopen. Route is server-only; enqueueNotification (daemon/queue)
+    // must NOT be imported from workflow.ts because incident-detail.tsx is a
+    // client component that transitively imports workflow.ts.
+    if (body.to === "open") {
+      void enqueueNotification({
+        type: "incident.opened",
+        targetId: id,
+        severity: data.severity,
+        title: data.title,
+        summary: `Incident reopened by ${user.id}`,
+      }).catch((e) => console.error("notify incident.opened failed", e));
+    }
+
     return Response.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return toErrorResponse(error, requestId);

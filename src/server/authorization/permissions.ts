@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   alertsResolve: "alerts.resolve",
   alertsReopen: "alerts.reopen",
   alertsAnalyze: "alerts.analyze",
+  alertsManageFp: "alerts.manage_fp",
   agentsRead: "agents.read",
   agentsList: "agents.list",
   agentsManage: "agents.manage",

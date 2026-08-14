@@ -1,10 +1,12 @@
 import { PgBoss } from "pg-boss";
 import type { Job } from "pg-boss";
+import { eq, sql } from "drizzle-orm";
 
 type JobBatch<Data> = Job<Data>[];
 import { AppConfig, loadConfig } from "../config";
 import { getPgBoss } from "./pg-boss";
 import { createDatabase } from "../db/client";
+import * as schema from "../db/schema";
 import { ActorContext } from "../authorization/permissions";
 import { resolveEffectiveConfig } from "../settings/service";
 import { runAlertAnalysis } from "../ai/analyze-service";
@@ -12,6 +14,7 @@ import { correlateAlert } from "../incidents/correlator";
 import { draftIncidentFromAlert } from "../incidents/ir-draft";
 import { getAlertDetail } from "../alerts/query";
 import { dispatchNotification } from "../notifications/dispatcher";
+import { writeAuditEvent } from "../audit/audit-service";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
 import { NotificationEvent } from "../notifications/render";
@@ -66,7 +69,7 @@ async function registerQueuesInternal(
   await pgBoss.createQueue(QUEUE_SYNC_ABUSEIPDB).catch(() => {});
 
   // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
-  await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string; connectionId?: string; enrich?: boolean }>) => {
+  await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string; connectionId?: string; enrich?: boolean; force?: boolean }>) => {
     const effConfig = await resolveEffectiveConfig(bg.db, config);
     for (const job of jobs) {
       const alertId = job.data.alertId;
@@ -78,8 +81,40 @@ async function registerQueuesInternal(
       };
       try {
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "loading", { jobId: job.id });
-        const analysis = await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { connectionId: job.data.connectionId, enrich: job.data.enrich }, metadata, effConfig);
+        const analysis = await runAlertAnalysis(bg.db, SYSTEM_ACTOR, alertId, { connectionId: job.data.connectionId, enrich: job.data.enrich, force: job.data.force ?? false }, metadata, effConfig);
         const v = analysis.verdict;
+
+        // FP-memory soft-suppress bookkeeping: audit every match + bump the
+        // signature counter. The likelyFalsePositive flag set inside
+        // runAlertAnalysis already steers the IR-draft gate below away from
+        // auto-drafting — this block only records that a match happened.
+        if (analysis.fpSuppressedSignatureId) {
+          const signatureId = analysis.fpSuppressedSignatureId;
+          // Audit + counter bump together so a crash between them can't record a
+          // match in the audit log without bumping the counter (cosmetic parity).
+          await bg.db.transaction(async (tx) => {
+            await writeAuditEvent(tx, {
+              actorUserId: SYSTEM_ACTOR.userId,
+              targetType: "alert",
+              targetId: alertId,
+              action: "alert.fp_suppress",
+              ipAddress: metadata.ip,
+              userAgent: metadata.userAgent,
+              requestId: metadata.requestId,
+              detail: {
+                signatureId: signatureId,
+                reason: "fp-memory match",
+              },
+            });
+            await tx
+              .update(schema.fpSignatures)
+              .set({
+                matchCount: sql`${schema.fpSignatures.matchCount} + 1`,
+                lastMatchedAt: new Date(),
+              })
+              .where(eq(schema.fpSignatures.id, signatureId));
+          });
+        }
 
         let autoDrafted = false;
         const enrichment = analysis.enrichment;
@@ -87,8 +122,10 @@ async function registerQueuesInternal(
           (ti.abuseScore ?? 0) >= 80 || /malware|c&c|botnet/i.test(ti.abuseCategory ?? ""),
         ) ?? false;
         const freqCount = enrichment?.networkFrequency?.count ?? 0;
-        if (v.confidence >= 0.85 && !v.likelyFalsePositive && (tiBad || freqCount > 10)) {
-          console.log(`[Queue:analyze] Alert ${alertId} passed conservative Auto-IR gate (conf=${v.confidence}, ti=${tiBad}, freq=${freqCount}). Drafting incident.`);
+        // ponytail: socAutoCreateIncident=false only gates the IR-draft path here; the correlateAlert fallback at line 98 remains independent (separate existing behavior).
+        const corroboration = effConfig.socAutoIncidentRequireCorroboration ? (tiBad || freqCount > 10) : true;
+        if (effConfig.socAutoCreateIncident && v.confidence >= effConfig.socAutoIncidentMinConfidence && !v.likelyFalsePositive && corroboration) {
+          console.log(`[Queue:analyze] Alert ${alertId} passed Auto-IR gate (conf=${v.confidence}, ti=${tiBad}, freq=${freqCount}). Drafting incident.`);
           const alert = await getAlertDetail(bg.db, SYSTEM_ACTOR, alertId);
           await draftIncidentFromAlert(bg.db, SYSTEM_ACTOR, alert, v, metadata);
           autoDrafted = true;
@@ -182,7 +219,7 @@ export async function enqueueAlertAnalysis(
   const pgBoss = await getPgBoss(config);
   await registerQueues(pgBoss, config);
   const { force, ...analysisOptions } = options;
-  await pgBoss.send(QUEUE_ANALYZE_ALERT, { alertId, ...analysisOptions }, {
+  await pgBoss.send(QUEUE_ANALYZE_ALERT, { alertId, ...analysisOptions, force: force ?? false }, {
     ...(force ? {} : {
       singletonKey: `analyze:${alertId}`,
       singletonSeconds: 60 * 30,

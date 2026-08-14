@@ -40,7 +40,7 @@ describe("analyze-service", () => {
     const db = { insert: mockInsert } as unknown as Parameters<typeof runAlertAnalysis>[0];
 
     const res = await runAlertAnalysis(db, mockActor, "alert-1", {}, { requestId: "r1", ip: "1.1.1.1", userAgent: "ua" }, "key", { provider: mockProvider });
-    expect(res).toEqual({ id: "analysis-1", alertId: "alert-1", verdict: { summary: "SSH Brute Force", confidence: 0.95 } });
+    expect(res).toEqual({ id: "analysis-1", alertId: "alert-1", fpSuppressedSignatureId: null, verdict: { summary: "SSH Brute Force", confidence: 0.95 } });
     expect(audit.writeAuditEvent).toHaveBeenCalledWith(db, expect.objectContaining({ action: "alert.analyze", targetId: "alert-1" }));
   });
 

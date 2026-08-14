@@ -16,17 +16,20 @@ export function IncidentActions({ incidentId, canApprove }: { incidentId: string
   const t = useTranslations("incidents");
   const [actions, setActions] = useState<ActionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     fetch(`/api/incidents/${incidentId}/actions`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data.data)) {
+        if (alive && Array.isArray(data.data)) {
           setActions(data.data as ActionDetail[]);
         }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .catch(() => { if (alive) setError(true); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [incidentId]);
 
   const handleDecision = async (actionId: string, decision: "approve" | "reject") => {
@@ -44,24 +47,33 @@ export function IncidentActions({ incidentId, canApprove }: { incidentId: string
     }
   };
 
-  if (loading || actions.length === 0) return null;
+  if (loading) {
+    return (
+      <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">
+          {t("proposedActions")}
+        </h2>
+        <p className="text-xs text-[var(--color-ink-muted)]">{t("loading-actions")}</p>
+      </section>
+    );
+  }
+
+  // No section when there are genuinely no actions and load succeeded; avoids noise.
+  if (error || actions.length === 0) return null;
 
   return (
     <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">
       <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">
-        Proposed Actions
+        {t("proposedActions")}
       </h2>
       <div className="flex flex-col gap-4">
         {actions.map(action => (
           <div key={action.id} className="rounded-[6px] bg-[var(--color-canvas-soft)] p-4 text-sm border border-[var(--color-hairline)]">
             <div className="flex justify-between items-start mb-2">
               <span className="font-mono font-bold text-[var(--color-primary)]">{action.command}</span>
-              <span className={`text-xs uppercase font-semibold px-2 py-0.5 rounded ${
-                action.status === 'executed' ? 'bg-green-100 text-green-800' :
-                action.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                action.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>{action.status}</span>
+              <span className={`status-pill status-${action.status === "executed" ? "mitigated" : action.status === "approved" ? "open" : action.status === "rejected" ? "resolved" : "investigating"}`}>
+                {action.status}
+              </span>
             </div>
             <p className="text-[var(--color-ink-muted)] mb-3">{action.reason}</p>
             {action.status === "proposed" && canApprove && (
@@ -71,14 +83,14 @@ export function IncidentActions({ incidentId, canApprove }: { incidentId: string
                   onClick={() => void handleDecision(action.id, "approve")}
                   className="rounded-[4px] bg-[var(--color-primary)] px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
                 >
-                  Approve
+                  {t("approve")}
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleDecision(action.id, "reject")}
                   className="rounded-[4px] border border-[var(--color-hairline)] bg-white px-3 py-1 text-xs font-semibold text-[var(--color-ink)] hover:bg-gray-50"
                 >
-                  Reject
+                  {t("reject")}
                 </button>
               </div>
             )}

@@ -15,8 +15,8 @@ function makeAlert(overrides: Partial<{ level: number; groups: string[]; tags: s
     id: "a1",
     wazuhEventId: null,
     fingerprint: "",
-    wazuhTimestamp: new Date(),
-    ingestedAt: new Date(),
+    wazuhTimestamp: new Date("2026-08-13T11:00:00Z"),
+    ingestedAt: new Date("2026-08-13T11:00:00Z"),
     agentId: "001",
     agentName: overrides.agentName ?? "web-01",
     agentIp: null,
@@ -35,123 +35,109 @@ function makeAlert(overrides: Partial<{ level: number; groups: string[]; tags: s
   };
 }
 
+const NOW = Date.parse("2026-08-13T12:00:00Z");
+
 afterEach(cleanup);
 
 describe("AlertTable", () => {
   it("renders loading, empty, and data states", () => {
     const { rerender } = render(
-      <AlertTable status="loading" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="loading" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
     expect(screen.getByText("Loading alerts…")).toBeInTheDocument();
 
     rerender(
-      <AlertTable status="success" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
     expect(screen.getByText(/No alerts match/)).toBeInTheDocument();
   });
 
   it("shows severity badges with correct color and label", () => {
     const { rerender } = render(
-      <AlertTable status="success" alerts={[makeAlert({ level: 15, groups: [] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ level: 15, groups: [] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
     const badge = screen.getByRole("generic", { name: /severity critical/i });
     expect(badge).toHaveStyle({ backgroundColor: "#DC2626" });
     expect(badge).toHaveTextContent("Critical");
 
     rerender(
-      <AlertTable status="success" alerts={[makeAlert({ level: 12 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ level: 12 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    const highBadge = screen.getByRole("generic", { name: /severity high/i });
-    expect(highBadge).toHaveStyle({ backgroundColor: "#EA580C" });
+    expect(screen.getByRole("generic", { name: /severity high/i })).toHaveStyle({ backgroundColor: "#EA580C" });
 
     rerender(
-      <AlertTable status="success" alerts={[makeAlert({ level: 7 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ level: 7 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    const medBadge = screen.getByRole("generic", { name: /severity medium/i });
-    expect(medBadge).toHaveStyle({ backgroundColor: "#D97706" });
+    expect(screen.getByRole("generic", { name: /severity medium/i })).toHaveStyle({ backgroundColor: "#D97706" });
 
     rerender(
-      <AlertTable status="success" alerts={[makeAlert({ level: 6 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ level: 6 })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    const lowBadge = screen.getByRole("generic", { name: /severity low/i });
-    expect(lowBadge).toHaveStyle({ backgroundColor: "#2563EB" });
+    expect(screen.getByRole("generic", { name: /severity low/i })).toHaveStyle({ backgroundColor: "#2563EB" });
   });
 
-  it("renders group badges", () => {
+  it("renders agent + rule meta line", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ groups: ["core-servers", "dmz"] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ agentName: "dmz-01", ruleId: "5501" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    expect(screen.getByText("core-servers")).toBeInTheDocument();
-    expect(screen.getByText("dmz")).toBeInTheDocument();
+    expect(screen.getByText(/dmz-01/)).toBeInTheDocument();
+    expect(screen.getByText(/5501/)).toBeInTheDocument();
   });
 
-  it("renders '-' for both groups and tags columns when empty", () => {
+  it("renders relative time in the Time column", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ groups: [], tags: [] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert()]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    expect(screen.getByRole("columnheader", { name: "Groups" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Tags" })).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Agent groups" })).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Tags" })).toBeInTheDocument();
+    // 1h ago for 11:00 vs now 12:00
+    expect(screen.getByText("1h ago")).toBeInTheDocument();
   });
 
-  it("renders tag badges when tags are present", () => {
+  it("renders a status pill", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ tags: ["critical", "ssh"] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    expect(screen.getByText("critical")).toBeInTheDocument();
-    expect(screen.getByText("ssh")).toBeInTheDocument();
+    expect(screen.getByText("acknowledged")).toBeInTheDocument();
   });
 
-  it("renders '-' when no tags", () => {
-    render(
-      <AlertTable status="success" alerts={[makeAlert({ tags: [] })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} />
-    );
-    expect(screen.getAllByText("-")[0]).toBeInTheDocument();
-  });
-
-  it("renders a clickable row when onOpenDetail is provided", () => {
+  it("renders a clickable title when onOpenDetail is provided", () => {
     const handler = vi.fn();
     render(
-      <AlertTable status="success" alerts={[makeAlert({ ruleDescription: "SSH brute force" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} onOpenDetail={handler} />
+      <AlertTable status="success" alerts={[makeAlert({ ruleDescription: "SSH brute force" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} onOpenDetail={handler} now={NOW} />
     );
-    const btn = screen.getByRole("button", { name: /view details for ssh brute force/i });
+    const btn = screen.getByRole("button", { name: /SSH brute force/ });
     expect(btn).toBeInTheDocument();
     btn.click();
-    expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ ruleDescription: "SSH brute force" }));
   });
 
   it("renders Reopen button for acknowledged alert when canModify and onReopen provided", () => {
     const handler = vi.fn();
     render(
-      <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={handler} canModify={true} />
+      <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={handler} canModify={true} now={NOW} />
     );
     const reopenBtn = screen.getByRole("button", { name: /^Reopen/ });
-    expect(reopenBtn).toBeInTheDocument();
     reopenBtn.click();
     expect(handler).toHaveBeenCalledWith("a1");
-    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("renders Reopen button for resolved alert", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ status: "resolved" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} />
+      <AlertTable status="success" alerts={[makeAlert({ status: "resolved" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} now={NOW} />
     );
     expect(screen.getByRole("button", { name: /^Reopen/ })).toBeInTheDocument();
   });
 
   it("does not render Reopen for open alert", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ status: "open" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} />
+      <AlertTable status="success" alerts={[makeAlert({ status: "open" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={true} now={NOW} />
     );
     expect(screen.queryByRole("button", { name: /^Reopen/ })).not.toBeInTheDocument();
   });
 
-  it("does not render Reopen when canModify is false", () => {
+  it("does not render actions when canModify is false", () => {
     render(
-      <AlertTable status="success" alerts={[makeAlert({ status: "acknowledged" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} onReopen={vi.fn()} canModify={false} />
+      <AlertTable status="success" alerts={[makeAlert({ status: "open" })]} onAcknowledge={vi.fn()} onResolve={vi.fn()} canModify={false} now={NOW} />
     );
-    expect(screen.queryByRole("button", { name: /^Reopen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Ack/ })).not.toBeInTheDocument();
   });
 });

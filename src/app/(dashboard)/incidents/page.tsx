@@ -5,7 +5,11 @@ import { PERMISSIONS } from "../../../server/authorization/permissions";
 import { IncidentsClient } from "./incidents-client";
 import { redirect } from "next/navigation";
 
-export default async function IncidentsPage() {
+export default async function IncidentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const config = loadConfig(process.env);
   const { db, pool } = createDatabase(config.databaseUrl);
   try {
@@ -14,7 +18,10 @@ export default async function IncidentsPage() {
       redirect("/dashboard");
     }
     const canManage = user.permissions.has(PERMISSIONS.incidentsManage);
-    return <IncidentsClient canManage={canManage} />;
+    const { status } = await searchParams;
+    const validStatuses = ["open", "investigating", "mitigated", "resolved", "all"];
+    const initialStatus = status && validStatuses.includes(status) ? status : "open";
+    return <IncidentsClient canManage={canManage} initialStatus={initialStatus} />;
   } finally {
     await pool.end();
   }

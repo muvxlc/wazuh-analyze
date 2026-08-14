@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import {
   Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -37,6 +38,10 @@ interface RunningRow {
 }
 
 interface SeriesPoint { hour: string | Date; queue: string; total: number; }
+
+const JOB_PAGE_SIZE = 20;
+const QUEUE_FILTERS = ["", "analyze-alert", "dispatch-notification", "execute-action", "weekly-soc-report"] as const;
+const STATE_FILTERS = ["", "created", "active", "completed", "failed", "expired", "cancelled"] as const;
 
 interface QueuesData {
   queues: Record<string, QueueDetail>;
@@ -76,7 +81,29 @@ export function QueuesClient({ canManage = false }: Props) {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillMsg, setBackfillMsg] = useState<string | null>(null);
   const [actionJob, setActionJob] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<RecentJob[]>([]);
+  const [jobsTotal, setJobsTotal] = useState(0);
+  const [jobOffset, setJobOffset] = useState(0);
+  const [jobQueue, setJobQueue] = useState<string>("");
+  const [jobState, setJobState] = useState<string>("");
+  const [retryingAll, setRetryingAll] = useState(false);
+  const [retryAllMsg, setRetryAllMsg] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadJobs = useCallback(async () => {
+    const params = new URLSearchParams({ limit: String(JOB_PAGE_SIZE), offset: String(jobOffset) });
+    if (jobQueue) params.set("queue", jobQueue);
+    if (jobState) params.set("state", jobState);
+    try {
+      const res = await fetch(`/api/queues/jobs?${params.toString()}`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { data: RecentJob[]; meta: { total: number } };
+      setJobs(body.data);
+      setJobsTotal(body.meta.total);
+    } catch {
+      // leave last-known table; summary poll surfaces broader errors.
+    }
+  }, [jobOffset, jobQueue, jobState]);
 
   const poll = async () => {
     try {
@@ -94,9 +121,37 @@ export function QueuesClient({ canManage = false }: Props) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void poll();
-    intervalRef.current = setInterval(() => { void poll(); }, 5000);
+    intervalRef.current = setInterval(() => {
+      void poll();
+      void loadJobs();
+    }, 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, []);
+  }, [loadJobs]);
+
+  // Refetch jobs table whenever its filters/page change.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadJobs();
+  }, [loadJobs]);
+
+  const handleRetryAll = async () => {
+    if (retryingAll || !canManage) return;
+    setRetryingAll(true);
+    setRetryAllMsg(null);
+    try {
+      const params = new URLSearchParams({ state: "failed" });
+      if (jobQueue) params.set("queue", jobQueue);
+      const res = await fetch(`/api/queues/jobs/retry-all?${params.toString()}`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const body = (await res.json()) as { data: { retried: number; matched: number } };
+      setRetryAllMsg(t("retryAllDone", { retried: body.data.retried, matched: body.data.matched }));
+      void loadJobs();
+    } catch {
+      setRetryAllMsg(t("error"));
+    } finally {
+      setRetryingAll(false);
+    }
+  };
 
   const handleBackfill = async () => {
     if (backfilling) return;
@@ -129,6 +184,7 @@ export function QueuesClient({ canManage = false }: Props) {
       });
       if (!res.ok) throw new Error();
       void poll();
+      void loadJobs();
     } catch {
       alert(t("error"));
     } finally {
@@ -277,7 +333,42 @@ export function QueuesClient({ canManage = false }: Props) {
           </section>
 
           <section className="rounded-[8px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-5">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">{t("latestJobs")}</h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">{t("latestJobs")}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={jobQueue}
+                  onChange={(e) => { setJobQueue(e.target.value); setJobOffset(0); }}
+                  aria-label={t("filterQueue")}
+                  className="rounded-[6px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2 py-1 text-xs text-[var(--color-ink)]"
+                >
+                  {QUEUE_FILTERS.map((q) => (
+                    <option key={q} value={q}>{q || t("allQueues")}</option>
+                  ))}
+                </select>
+                <select
+                  value={jobState}
+                  onChange={(e) => { setJobState(e.target.value); setJobOffset(0); }}
+                  aria-label={t("filterState")}
+                  className="rounded-[6px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2 py-1 text-xs text-[var(--color-ink)]"
+                >
+                  {STATE_FILTERS.map((s) => (
+                    <option key={s} value={s}>{s || t("allStates")}</option>
+                  ))}
+                </select>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRetryAll()}
+                    disabled={retryingAll}
+                    className="rounded-[6px] bg-[var(--color-primary)] px-3 py-1 text-xs font-semibold text-[var(--color-on-primary)] hover:opacity-90 disabled:opacity-50"
+                  >
+                    {retryingAll ? "…" : t("retryAll")}
+                  </button>
+                )}
+              </div>
+            </div>
+            {retryAllMsg && <p className="mb-2 text-xs text-[var(--color-ink-muted)]">{retryAllMsg}</p>}
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs uppercase text-[var(--color-ink-muted)]">
@@ -292,18 +383,24 @@ export function QueuesClient({ canManage = false }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-hairline)]">
-                    {data.recentJobs.length === 0 ? (
+                    {jobs.length === 0 ? (
                       <tr>
                         <td colSpan={canManage ? 7 : 6} className="py-4 text-center text-sm text-[var(--color-ink-muted)]">
                           {t("empty")}
                         </td>
                       </tr>
                     ) : (
-                      data.recentJobs.map((job) => (
+                      jobs.map((job) => (
                         <tr key={job.id} className="align-top">
                           <td className="py-2 pr-3 font-mono text-xs">{job.queue}</td>
-                          <td className="py-2 pr-3 font-mono text-xs text-[var(--color-ink-muted)] truncate max-w-[200px]" title={job.entityId ?? ""}>
-                            {job.entityId ?? "-"}
+                          <td className="py-2 pr-3 font-mono text-xs truncate max-w-[200px]" title={job.entityId ?? ""}>
+                            {job.queue === "analyze-alert" && job.entityId ? (
+                              <Link href={`/alerts/${job.entityId}`} className="text-[var(--color-primary)] hover:underline">
+                                {job.entityId}
+                              </Link>
+                            ) : (
+                              <span className="text-[var(--color-ink-muted)]">{job.entityId ?? "-"}</span>
+                            )}
                           </td>
                           <td className="py-2 pr-3">
                             <StateBadge state={job.state} />
@@ -343,7 +440,32 @@ export function QueuesClient({ canManage = false }: Props) {
                   </tbody>
                 </table>
               </div>
-            </section>
+            {jobsTotal > JOB_PAGE_SIZE && (
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-[var(--color-ink-muted)]">
+                  {t("pageInfo", { from: jobOffset + 1, to: Math.min(jobOffset + jobs.length, jobsTotal), total: jobsTotal })}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={jobOffset === 0}
+                    onClick={() => setJobOffset(Math.max(0, jobOffset - JOB_PAGE_SIZE))}
+                    className="rounded-[6px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-1 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-canvas-soft)] disabled:opacity-50"
+                  >
+                    {t("prev")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={jobOffset + jobs.length >= jobsTotal}
+                    onClick={() => setJobOffset(jobOffset + JOB_PAGE_SIZE)}
+                    className="rounded-[6px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-1 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-canvas-soft)] disabled:opacity-50"
+                  >
+                    {t("next")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>

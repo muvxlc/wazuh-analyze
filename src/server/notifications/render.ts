@@ -11,6 +11,7 @@ export type NotificationEventType =
   | "alert.high_severity"
   | "incident.created"
   | "incident.escalated"
+  | "incident.opened"
   | "verdict.confident_real"
   | "report.weekly";
 
@@ -35,6 +36,7 @@ export function renderNotification(
   let titlePrefix = "🚨 [Wazuh Alert]";
   if (event.type === "incident.created") titlePrefix = "⚠️ [New Incident]";
   else if (event.type === "incident.escalated") titlePrefix = "🔥 [Incident Escalated]";
+  else if (event.type === "incident.opened") titlePrefix = "🔄 [Incident Reopened]";
   else if (event.type === "verdict.confident_real") titlePrefix = "🤖 [Confirmed Threat]";
   else if (isReport) titlePrefix = "📊 [Weekly Report]";
 

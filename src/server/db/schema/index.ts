@@ -6,6 +6,7 @@ export * from "./reports";
 export * from "./alert-analyses";
 export * from "./alerts";
 export * from "./audit";
+export * from "./fp-signatures";
 export * from "./incidents";
 export * from "./ioc-cache";
 export * from "./notifications";

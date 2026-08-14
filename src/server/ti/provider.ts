@@ -50,6 +50,7 @@ export interface TiConfigSlice {
   providers: string[];
   abuseipdbKey: string | null;
   otxKey: string | null;
+  greynoiseKey: string | null;
 }
 
 /**
@@ -66,6 +67,10 @@ export async function buildTiProviders(config: TiConfigSlice): Promise<TiProvide
   if (names.has("otx")) {
     const { createOtxProvider } = await import("./otx");
     providers.push(createOtxProvider({ apiKey: config.otxKey ?? undefined }));
+  }
+  if (names.has("greynoise")) {
+    const { createGreyNoiseProvider } = await import("./greynoise");
+    providers.push(createGreyNoiseProvider({ apiKey: config.greynoiseKey ?? undefined }));
   }
   return providers;
 }

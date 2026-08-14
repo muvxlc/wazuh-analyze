@@ -9,6 +9,9 @@ export type SystemSettingKey =
   | "appUrl"
   | "socAutoAnalyze"
   | "socAutoAnalyzeMinLevel"
+  | "socAutoCreateIncident"
+  | "socAutoIncidentMinConfidence"
+  | "socAutoIncidentRequireCorroboration"
   | "tiProviders"
   | "abuseipdbKey"
   | "otxKey"
@@ -16,4 +19,8 @@ export type SystemSettingKey =
   | "tiCacheTtlDays"
   | "wazuhIndexerUrl"
   | "wazuhIndexerUsername"
-  | "wazuhIndexerPassword";
+  | "wazuhIndexerPassword"
+  | "greynoiseKey"
+  | "fpMemoryEnabled"
+  | "fpMemoryTtlDays"
+  | "fpMemorySeverityFloor";

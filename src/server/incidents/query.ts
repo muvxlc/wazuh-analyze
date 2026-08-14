@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { Database } from "../db/types";
 import * as schema from "../db/schema";
 import type { ActorContext } from "../authorization/permissions";
@@ -11,18 +11,22 @@ export interface IncidentListQuery {
   agentId?: string;
   ruleId?: string;
   severity?: string;
+  assigneeUserId?: string;
+  q?: string;
   limit?: number;
   offset?: number;
 }
 
 export interface IncidentListItem {
   id: string;
+  incidentNumber: string | null;
   title: string;
   status: IncidentStatus;
   severity: string;
   agentId: string | null;
   ruleId: string | null;
   assigneeUserId: string | null;
+  assigneeDisplayName: string | null;
   createdAt: Date;
   updatedAt: Date;
   closedAt: Date | null;
@@ -48,6 +52,41 @@ function validateOffset(offset?: number): number {
   return Math.max(0, Math.trunc(offset));
 }
 
+// Shared filter builder so list + export stay in sync.
+export function buildIncidentWhere(query: IncidentListQuery): SQL | undefined {
+  const conditions: SQL[] = [];
+  if (query.status) conditions.push(eq(schema.incidents.status, query.status));
+  if (query.agentId) conditions.push(eq(schema.incidents.agentId, query.agentId));
+  if (query.ruleId) conditions.push(eq(schema.incidents.ruleId, query.ruleId));
+  if (query.severity) conditions.push(eq(schema.incidents.severity, query.severity));
+  if (query.assigneeUserId) conditions.push(eq(schema.incidents.assigneeUserId, query.assigneeUserId));
+  if (query.q) {
+    const term = `%${query.q}%`;
+    conditions.push(
+      or(
+        ilike(schema.incidents.title, term),
+        ilike(schema.incidents.incidentNumber, term),
+        ilike(schema.incidents.ruleId, term),
+        ilike(schema.incidents.agentId, term),
+      ) as SQL,
+    );
+  }
+  return conditions.length ? and(...conditions) : undefined;
+}
+
+// Batch resolve user display names by id (single query, not N+1).
+export async function fetchUserNames(db: Database, ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const map = new Map<string, string>();
+  if (unique.length === 0) return map;
+  const rows = await db
+    .select({ id: schema.users.id, displayName: schema.users.displayName })
+    .from(schema.users)
+    .where(inArray(schema.users.id, unique));
+  for (const r of rows) map.set(r.id, r.displayName);
+  return map;
+}
+
 export async function listIncidents(
   db: Database,
   actor: ActorContext,
@@ -57,18 +96,12 @@ export async function listIncidents(
 
   const limit = validateLimit(query.limit);
   const offset = validateOffset(query.offset);
-
-  const conditions = [];
-  if (query.status) conditions.push(eq(schema.incidents.status, query.status));
-  if (query.agentId) conditions.push(eq(schema.incidents.agentId, query.agentId));
-  if (query.ruleId) conditions.push(eq(schema.incidents.ruleId, query.ruleId));
-  if (query.severity) conditions.push(eq(schema.incidents.severity, query.severity));
-
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = buildIncidentWhere(query);
 
   const rows = await db
     .select({
       id: schema.incidents.id,
+      incidentNumber: schema.incidents.incidentNumber,
       title: schema.incidents.title,
       status: schema.incidents.status,
       severity: schema.incidents.severity,
@@ -102,8 +135,10 @@ export async function listIncidents(
     countMap.set(c.incidentId, c.count);
   }
 
+  const nameMap = await fetchUserNames(db, rows.map((r) => r.assigneeUserId).filter((v): v is string => Boolean(v)));
+
   const totalRows = await db
-    .select({ value: schema.incidents.id })
+    .select({ value: sql<number>`count(*)::int` })
     .from(schema.incidents)
     .where(where);
 
@@ -111,9 +146,10 @@ export async function listIncidents(
     items: rows.map((r) => ({
       ...r,
       status: r.status as IncidentStatus,
+      assigneeDisplayName: r.assigneeUserId ? nameMap.get(r.assigneeUserId) ?? null : null,
       alertCount: countMap.get(r.id) ?? 0,
     })),
-    total: totalRows.length,
+    total: totalRows[0]?.value ?? 0,
   };
 }
 
@@ -150,14 +186,21 @@ export async function getIncidentDetail(
     .where(eq(schema.incidentAlerts.incidentId, incidentId))
     .orderBy(asc(schema.incidentAlerts.addedAt));
 
+  // Resolve names for the assignee + every timeline actor in one query.
+  const actorIds = events.map((e) => e.actorUserId).filter((v): v is string => Boolean(v));
+  if (incident.assigneeUserId) actorIds.push(incident.assigneeUserId);
+  const nameMap = await fetchUserNames(db, actorIds);
+
   return {
     ...incident,
     status: incident.status as IncidentStatus,
+    assigneeDisplayName: incident.assigneeUserId ? nameMap.get(incident.assigneeUserId) ?? null : null,
     timeline: events.map((e) => ({
       id: e.id,
       fromStatus: e.fromStatus as IncidentStatus | null,
       toStatus: e.toStatus as IncidentStatus,
       actorUserId: e.actorUserId,
+      actorDisplayName: e.actorUserId ? nameMap.get(e.actorUserId) ?? null : null,
       occurredAt: e.occurredAt,
       metadata: e.metadata as Record<string, unknown>,
     })),

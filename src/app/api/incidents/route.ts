@@ -11,6 +11,8 @@ const querySchema = z.object({
   agentId: z.string().optional(),
   ruleId: z.string().optional(),
   severity: z.string().optional(),
+  assigneeUserId: z.string().uuid().optional(),
+  q: z.string().max(200).optional(),
   limit: z.coerce.number().int().optional(),
   offset: z.coerce.number().int().optional(),
 });

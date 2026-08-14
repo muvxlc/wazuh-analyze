@@ -8,11 +8,13 @@ export type IncidentEventRow = InferSelectModel<typeof incidentEvents>;
 
 export interface IncidentDetail extends Omit<IncidentRow, "status"> {
   status: IncidentStatus;
+  assigneeDisplayName?: string | null;
   timeline: Array<{
     id: string;
     fromStatus: IncidentStatus | null;
     toStatus: IncidentStatus;
     actorUserId: string | null;
+    actorDisplayName?: string | null;
     occurredAt: Date;
     metadata: Record<string, unknown>;
   }>;
