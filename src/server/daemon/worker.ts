@@ -1,6 +1,6 @@
 import { AppConfig } from "../config";
 import { getPgBoss, stopPgBoss } from "./pg-boss";
-import { registerQueues, QUEUE_WEEKLY_REPORT, QUEUE_SYNC_ABUSEIPDB, QUEUE_ANALYZE_VULNERABILITY, enqueueVulnerabilityAnalysis } from "./queue";
+import { registerQueues, QUEUE_WEEKLY_REPORT, QUEUE_SYNC_ABUSEIPDB, QUEUE_ANALYZE_VULNERABILITY, QUEUE_CHECK_SOURCE_FRESHNESS, enqueueVulnerabilityAnalysis } from "./queue";
 import { createDatabase } from "../db/client";
 import * as schema from "../db/schema";
 import { enqueuePendingAlerts } from "./backfill";
@@ -21,6 +21,9 @@ export async function startWorker(config: AppConfig) {
 
   // Daily AbuseIPDB blacklist sync. Idempotent — schedule() upserts.
   await boss.schedule(QUEUE_SYNC_ABUSEIPDB, "0 0 * * *", {}, { tz: "UTC" });
+
+  // Hourly source freshness check. Idempotent — schedule() upserts.
+  await boss.schedule(QUEUE_CHECK_SOURCE_FRESHNESS, "23 * * * *", {}, { tz: "UTC" });
 
   // Auto-backfill: enqueue alerts lacking analysis. Non-blocking, small batch.
   // ponytail: batch 50 keeps local LM Studio from being flooded on cold start.
