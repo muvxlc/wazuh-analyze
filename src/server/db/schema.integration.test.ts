@@ -21,6 +21,18 @@ const expectedIndexes = [
   "vulnerability_analyses_created_idx",
   "sessions_token_hash_unique",
   "users_normalized_email_unique",
+  "source_coverage_source_key_unique",
+  "source_coverage_key_idx",
+  "source_coverage_type_idx",
+  "source_coverage_enabled_idx",
+  "source_coverage_freshness_idx",
+  "evidence_records_alert_idx",
+  "evidence_records_incident_idx",
+  "evidence_records_type_idx",
+  "evidence_records_created_idx",
+  "evidence_records_provenance_idx",
+  "dead_letters_status_idx",
+  "dead_letters_source_idx",
 ];
 
 describe("PostgreSQL schema", () => {

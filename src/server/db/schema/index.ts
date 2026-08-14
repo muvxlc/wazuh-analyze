@@ -14,3 +14,6 @@ export * from "./queue-progress";
 export * from "./users";
 export * from "./wazuh";
 export * from "./vulnerability-analyses";
+export * from "./source-coverage";
+export * from "./evidence-records";
+export * from "./dead-letter";

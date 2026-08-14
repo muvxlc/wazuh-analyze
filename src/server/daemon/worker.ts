@@ -1,17 +1,26 @@
 import { AppConfig } from "../config";
 import { getPgBoss, stopPgBoss } from "./pg-boss";
-import { registerQueues, QUEUE_WEEKLY_REPORT, QUEUE_SYNC_ABUSEIPDB, QUEUE_ANALYZE_VULNERABILITY, enqueueVulnerabilityAnalysis } from "./queue";
+import { registerQueues, QUEUE_WEEKLY_REPORT, QUEUE_SYNC_ABUSEIPDB, QUEUE_ANALYZE_VULNERABILITY, QUEUE_CHECK_SOURCE_FRESHNESS, enqueueVulnerabilityAnalysis } from "./queue";
 import { createDatabase } from "../db/client";
 import * as schema from "../db/schema";
 import { enqueuePendingAlerts } from "./backfill";
 import { fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { desc } from "drizzle-orm";
 
-let isRunning = false;
+// globalThis flag: dev HMR re-runs module code, resetting module-level state
+// and letting a fresh startWorker spin up a new pg-boss pool without the old
+// one ever being closed. Survives reloads so only ONE worker per Node process.
+const GLOBAL_WORKER_KEY = "__wazuhWorkerStarted__";
+function workerStarted(): boolean {
+  return (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] === true;
+}
+function markWorkerStarted(): void {
+  (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] = true;
+}
 
 export async function startWorker(config: AppConfig) {
-  if (isRunning) return;
-  isRunning = true;
+  if (workerStarted()) return;
+  markWorkerStarted();
 
   const boss = await getPgBoss(config);
   await registerQueues(boss, config);
@@ -21,6 +30,9 @@ export async function startWorker(config: AppConfig) {
 
   // Daily AbuseIPDB blacklist sync. Idempotent — schedule() upserts.
   await boss.schedule(QUEUE_SYNC_ABUSEIPDB, "0 0 * * *", {}, { tz: "UTC" });
+
+  // Hourly source freshness check. Idempotent — schedule() upserts.
+  await boss.schedule(QUEUE_CHECK_SOURCE_FRESHNESS, "23 * * * *", {}, { tz: "UTC" });
 
   // Auto-backfill: enqueue alerts lacking analysis. Non-blocking, small batch.
   // ponytail: batch 50 keeps local LM Studio from being flooded on cold start.
@@ -81,8 +93,7 @@ export async function startWorker(config: AppConfig) {
 }
 
 export async function stopWorker() {
-  if (!isRunning) return;
   console.log("[Worker] Stopping...");
   await stopPgBoss();
-  isRunning = false;
+  (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] = false;
 }

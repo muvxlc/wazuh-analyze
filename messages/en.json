@@ -172,6 +172,7 @@
     "fetch-error": "Failed to load settings.",
     "soc": "SOC & Threat Intel",
     "soc-auto-analyze": "Auto-analyze alerts (AI)",
+    "soc-auto-analyze-vulnerabilities": "Auto-analyze vulnerabilities (AI)",
     "soc-auto-analyze-min-level": "Min level for AI analysis (1-15)",
     "soc-auto-create-incident": "Auto-create incident after analysis",
     "soc-auto-incident-min-confidence": "Min AI confidence to auto-create incident (0-1)",

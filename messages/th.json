@@ -172,6 +172,7 @@
     "fetch-error": "โหลดการตั้งค่าไม่สำเร็จ",
     "soc": "SOC & Threat Intel",
     "soc-auto-analyze": "วิเคราะห์แจ้งเตือนอัตโนมัติ (AI)",
+    "soc-auto-analyze-vulnerabilities": "วิเคราะห์ช่องโหว่อัตโนมัติ (AI)",
     "soc-auto-analyze-min-level": "ระดับต่ำสุดสำหรับ AI (1-15)",
     "soc-auto-create-incident": "สร้าง Incident อัตโนมัติหลังวิเคราะห์",
     "soc-auto-incident-min-confidence": "ความมั่นใจ AI ต่ำสุดเพื่อสร้าง Incident (0-1)",
