@@ -52,6 +52,7 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "fpMemoryEnabled",
   "fpMemoryTtlDays",
   "fpMemorySeverityFloor",
+  "analyzeCooldownSeconds",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {

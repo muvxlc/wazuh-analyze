@@ -24,4 +24,5 @@ export type SystemSettingKey =
   | "greynoiseKey"
   | "fpMemoryEnabled"
   | "fpMemoryTtlDays"
-  | "fpMemorySeverityFloor";
+  | "fpMemorySeverityFloor"
+  | "analyzeCooldownSeconds";
