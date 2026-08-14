@@ -3,6 +3,9 @@ import type { InferModel } from "drizzle-orm";
 
 export type AlertStatus = typeof alertStatusEnum.enumValues[number];
 
+// ponytail: shared with Feature 2 NEW badge threshold (relative-time.ts)
+export const DEFAULT_GROUP_WINDOW_MINUTES = 15;
+
 export interface AlertRecord {
   id: string;
   wazuhEventId: string | null;
@@ -64,10 +67,36 @@ export interface AlertListQuery {
   tags?: string[];
   cursor?: string;
   limit?: number;
+  group?: boolean;
+  windowMinutes?: number;
+  since?: Date;
+  until?: Date;
 }
 
 export interface AlertPage {
   items: AlertRecord[];
+  cursor: string | null;
+  hasNext: boolean;
+}
+
+export interface AlertGroupRow {
+  key: string;
+  count: number;
+  firstSeen: Date;
+  lastSeen: Date;
+  level: number;
+  agentId: string | null;
+  agentName: string | null;
+  ruleId: string | null;
+  ruleDescription: string;
+  status: AlertStatus;
+  representativeAlertId: string;
+  incidentCount: number;
+  openIncidentId: string | null;
+}
+
+export interface AlertGroupPage {
+  groups: AlertGroupRow[];
   cursor: string | null;
   hasNext: boolean;
 }

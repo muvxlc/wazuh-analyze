@@ -6,6 +6,7 @@ import {
   fetchAgentSca,
   fetchMitreTechnique,
   fetchProcesses,
+  fetchRootcheck,
 } from "./inventory";
 import { WazuhError } from "./errors";
 import type { WazuhConfig } from "./types";
@@ -77,6 +78,42 @@ describe("wazuh inventory", () => {
 
   it("rejects invalid agent IDs", async () => {
     await expect(fetchAgentSca(baseConfig, "001; rm -rf /")).rejects.toThrow(WazuhError);
+  });
+
+  it("fetches rootcheck with correct URL and query", async () => {
+    const fetchMock = mockAuth().mockResolvedValueOnce(
+      Response.json({
+        data: {
+          affected_items: [
+            { check: "rootkit_test", title: "Rootkit check", passed: true },
+          ],
+          total_affected_items: 1,
+        },
+      }),
+    );
+    const fetchFn = fetchMock as unknown as typeof fetch;
+    const res = await fetchRootcheck(baseConfig, "001", { fetchFn });
+    expect(res).toEqual({
+      data: {
+        affected_items: [
+          { check: "rootkit_test", title: "Rootkit check", passed: true },
+        ],
+        total_affected_items: 1,
+      },
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "https://wazuh.local/rootcheck/001?limit=20",
+    );
+    expect(fetchMock.mock.calls[1][1].headers.authorization).toBe("Bearer tok");
+  });
+
+  it("returns null on 404 for rootcheck", async () => {
+    const fetchMock = mockAuth().mockResolvedValueOnce(
+      new Response("Not found", { status: 404 }),
+    );
+    const fetchFn = fetchMock as unknown as typeof fetch;
+    const res = await fetchRootcheck(baseConfig, "999", { fetchFn });
+    expect(res).toBeNull();
   });
 
   it("matches MITRE technique client-side from list", async () => {

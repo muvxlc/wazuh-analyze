@@ -40,7 +40,7 @@ describe("analyze-service", () => {
     const db = { insert: mockInsert } as unknown as Parameters<typeof runAlertAnalysis>[0];
 
     const res = await runAlertAnalysis(db, mockActor, "alert-1", {}, { requestId: "r1", ip: "1.1.1.1", userAgent: "ua" }, "key", { provider: mockProvider });
-    expect(res).toEqual({ id: "analysis-1", alertId: "alert-1", verdict: { summary: "SSH Brute Force", confidence: 0.95 } });
+    expect(res).toEqual({ id: "analysis-1", alertId: "alert-1", fpSuppressedSignatureId: null, verdict: { summary: "SSH Brute Force", confidence: 0.95 } });
     expect(audit.writeAuditEvent).toHaveBeenCalledWith(db, expect.objectContaining({ action: "alert.analyze", targetId: "alert-1" }));
   });
 
@@ -64,6 +64,29 @@ describe("analyze-service", () => {
     expect(res.verdict.confidence).toBe(0.99);
     expect(mockInsert).toHaveBeenCalled();
     expect(mockProvider.chat).toHaveBeenCalledWith(expect.any(String), expect.stringContaining("malware"), expect.anything());
+  });
+
+  it("uses a three-minute floor for slow background models", async () => {
+    vi.mocked(query.getAlertDetail).mockResolvedValue(mockAlert as unknown as Awaited<ReturnType<typeof query.getAlertDetail>>);
+    vi.mocked(connections.resolveAiConnection).mockResolvedValue({ ...mockConn, timeoutMs: 5_000 });
+    const mockProvider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ summary: "Slow model", confidence: 0.8 })) };
+    const mockInsert = vi.fn().mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: "analysis-slow" }]) }) });
+    const db = { insert: mockInsert } as unknown as Parameters<typeof runAlertAnalysis>[0];
+
+    await runAlertAnalysis(db, mockActor, "alert-1", { enrich: false }, { requestId: "r3", ip: null, userAgent: null }, "key", { provider: mockProvider });
+    expect(mockProvider.chat).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.any(AbortSignal));
+  });
+
+  it("uses Wazuh MITRE only and ignores AI-added techniques", async () => {
+    vi.mocked(query.getAlertDetail).mockResolvedValue({ ...mockAlert, ruleId: "533" } as unknown as Awaited<ReturnType<typeof query.getAlertDetail>>);
+    vi.mocked(connections.resolveAiConnection).mockResolvedValue(mockConn);
+    const mockProvider = { chat: vi.fn().mockResolvedValue(JSON.stringify({ summary: "Port change", confidence: 0.7, mitreAttack: [{ techniqueId: "T1543.003", techniqueName: "Create or Modify System Process" }] })) };
+    const mockInsert = vi.fn().mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: "analysis-mitre" }]) }) });
+    const db = { insert: mockInsert } as unknown as Parameters<typeof runAlertAnalysis>[0];
+
+    const result = await runAlertAnalysis(db, mockActor, "alert-1", { enrich: false }, { requestId: "r4", ip: null, userAgent: null }, "key", { provider: mockProvider });
+    expect(result.verdict.mitreAttack?.map((item) => item.techniqueId)).toEqual(["T1046"]);
+    expect(mockInsert.mock.results[0]?.value).toBeDefined();
   });
 
   it("listAlertAnalyses returns mapped verdicts", async () => {

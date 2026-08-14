@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Bell, Bot, LayoutDashboard, Layers, Network, Settings, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Bell, Bot, LayoutDashboard, Layers, Network, Settings, ShieldAlert, ShieldCheck, Users, SearchCode } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { PERMISSIONS, type Permission } from "../../server/authorization/permissions";
 
@@ -26,8 +26,14 @@ interface SettingsSubItem {
 const workspaceItems: NavItem[] = [
   { key: "dashboard", href: "/dashboard", permission: PERMISSIONS.dashboardRead, icon: LayoutDashboard },
   { key: "alerts", href: "/alerts", permission: PERMISSIONS.alertsRead, icon: Bell },
+  { key: "threatIntel", href: "/threat-intel", permission: PERMISSIONS.tiRead, icon: SearchCode },
   { key: "agents", href: "/agents", permission: PERMISSIONS.agentsRead, icon: Network },
+  { key: "vulnerabilities", href: "/vulnerabilities", permission: PERMISSIONS.vulnerabilitiesRead, icon: ShieldAlert },
+  { key: "posture", href: "/posture", permission: PERMISSIONS.postureRead, icon: ShieldCheck },
+  { key: "hygiene", href: "/hygiene", permission: PERMISSIONS.postureRead, icon: ShieldCheck },
   { key: "incidents", href: "/incidents", permission: PERMISSIONS.incidentsRead, icon: ShieldAlert },
+  { key: "mitre", href: "/mitre", permission: PERMISSIONS.mitreRead, icon: ShieldAlert },
+  { key: "compliance", href: "/compliance", permission: PERMISSIONS.complianceRead, icon: ShieldCheck },
   { key: "chat", href: "/chat", permission: PERMISSIONS.chatUse, icon: Bot },
 ];
 

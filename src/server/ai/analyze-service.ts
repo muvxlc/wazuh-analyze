@@ -11,15 +11,20 @@ import { getAlertDetail } from "../alerts/query";
 import { createChatProvider, resolveAiConnection, type ChatProvider } from "./connections";
 import { analyzeAlert, type AiVerdict } from "./analysis";
 import { buildAnalysisContext, type AnalysisContext, type ContextDeps } from "../enrichment/context-builder";
-import { buildTiProviders, globalTiCache, type TiProvider } from "../ti/provider";
+import { buildTiProviders, type TiProvider, type TiVerdict } from "../ti/provider";
+import { DbTiCache } from "../ti/store";
 import { writeAuditEvent } from "../audit/audit-service";
 import { enqueueNotification } from "../daemon/queue";
+import { getRuleMitreTechniques, mergeMitreTechniques } from "../mitre/rule-map";
 import type { RequestMetadata } from "../http/request-metadata";
+import { checkFpMatch, shouldApplyFp } from "../fp/check";
 
 export interface AnalyzeOptions {
   connectionId?: string;
   /** Default true; set false to skip Wazuh/TI/correlation enrichment. */
   enrich?: boolean;
+  /** Break-glass: skip FP-memory soft-suppress (manual rerun). */
+  force?: boolean;
 }
 
 export interface AnalyzeDependencies {
@@ -29,7 +34,9 @@ export interface AnalyzeDependencies {
 }
 
 /** Accepts either a raw encryption key (legacy callers) or a full config object. */
-export type AnalyzeConfig = string | Pick<AppConfig, "settingsEncryptionKey" | "wazuh" | "ti">;
+export type AnalyzeConfig =
+  | string
+  | Pick<AppConfig, "settingsEncryptionKey" | "wazuh" | "ti" | "fpMemoryEnabled" | "fpMemorySeverityFloor">;
 
 export async function runAlertAnalysis(
   db: Database,
@@ -39,7 +46,7 @@ export async function runAlertAnalysis(
   metadata: RequestMetadata,
   config: AnalyzeConfig,
   deps: AnalyzeDependencies = {},
-): Promise<{ id: string; alertId: string; verdict: AiVerdict }> {
+): Promise<{ id: string; alertId: string; verdict: AiVerdict; fpSuppressedSignatureId: string | null; enrichment?: { iocLookups: TiVerdict[]; networkFrequency?: { count: number; windowMinutes: number } | null } }> {
   requirePermission(actor.permissions, "alerts.analyze");
 
   const encryptionKey =
@@ -48,6 +55,11 @@ export async function runAlertAnalysis(
   const alert = await getAlertDetail(db, actor, alertId);
   const conn = await resolveAiConnection(db, options.connectionId ?? null, encryptionKey);
 
+  // Background analysis isn't interactive — local LLMs routinely exceed the
+  // chat-style connection timeout. Floor at 3 minutes so slow models finish
+  // instead of aborting into ai_response_timeout. Raise via conn.timeoutMs.
+  const analysisTimeoutMs = Math.max(conn.timeoutMs, 180_000);
+
   const provider =
     deps.provider ??
     createChatProvider({
@@ -55,14 +67,14 @@ export async function runAlertAnalysis(
       baseUrl: conn.baseUrl,
       apiKey: conn.apiKey,
       model: conn.model,
-      timeoutMs: conn.timeoutMs,
+      timeoutMs: analysisTimeoutMs,
     });
 
   // Enrichment is best-effort: any failure falls back to alert-only analysis.
   let context: AnalysisContext | undefined;
   if (options.enrich !== false) {
     try {
-      const contextDeps = deps.contextDeps ?? (await buildContextDeps(config));
+      const contextDeps = deps.contextDeps ?? (await buildContextDeps(db, config));
       context = await buildAnalysisContext(
         {
           alertId,
@@ -81,8 +93,12 @@ export async function runAlertAnalysis(
     }
   }
 
+  const ruleMitre = getRuleMitreTechniques(alert.ruleId, alert.rawPayload);
   const startTime = Date.now();
-  const verdict = await analyzeAlert(provider, alert, conn.timeoutMs, context);
+  const verdict = await analyzeAlert(provider, alert, analysisTimeoutMs, context, ruleMitre);
+  // Wazuh is authoritative. AI explains supplied techniques but cannot add or alter IDs.
+  if (ruleMitre.length > 0) verdict.mitreAttack = ruleMitre;
+  else delete verdict.mitreAttack;
   const latencyMs = Date.now() - startTime;
 
   const [row] = await db
@@ -111,6 +127,25 @@ export async function runAlertAnalysis(
     detail: { analysisId: row.id, connectionId: conn.id, model: conn.model },
   });
 
+  // FP-memory soft-suppress: when a live, enabled, below-floor FP signature
+  // matches this alert, set the in-memory flag so the existing notify gate
+  // below AND the auto-IR-draft gate in the queue both skip. The LLM already
+  // ran; the persisted verdict row above reflects the model's real opinion.
+  // We NEVER drop or auto-resolve the alert. `force` (manual rerun) bypasses.
+  // The master toggle (fpMemoryEnabled, default false) gates everything.
+  let fpSuppressedSignatureId: string | null = null;
+  if (!options.force && typeof config !== "string" && config.fpMemoryEnabled && alert.ruleId) {
+    const fp = await checkFpMatch(
+      db,
+      { ruleId: alert.ruleId, agentId: alert.agentId ?? null, level: alert.level },
+      { enabled: true },
+    );
+    if (fp && shouldApplyFp(fp, alert.level, config.fpMemorySeverityFloor, new Date())) {
+      verdict.likelyFalsePositive = true;
+      fpSuppressedSignatureId = fp.id;
+    }
+  }
+
   if (!verdict.likelyFalsePositive && typeof verdict.confidence === "number" && verdict.confidence >= 0.8) {
     void enqueueNotification(
       {
@@ -123,11 +158,24 @@ export async function runAlertAnalysis(
     ).catch(console.error);
   }
 
-  return { id: row.id, alertId, verdict };
+  return {
+    id: row.id,
+    alertId,
+    verdict,
+    fpSuppressedSignatureId,
+    ...(context && (context.iocLookups.length > 0 || context.sections.networkFrequency)
+      ? {
+          enrichment: {
+            iocLookups: context.iocLookups,
+            networkFrequency: (context.sections.networkFrequency as { count: number; windowMinutes: number } | undefined) ?? null,
+          },
+        }
+      : {}),
+  };
 }
 
 /** Builds enrichment dependencies from config. Legacy string-key callers get no deps. */
-async function buildContextDeps(config: AnalyzeConfig): Promise<ContextDeps> {
+async function buildContextDeps(db: Database, config: AnalyzeConfig): Promise<ContextDeps> {
   if (typeof config === "string") return {};
   const wazuh: WazuhConfig | undefined = config.wazuh;
   const tiSlice = config.ti;
@@ -136,7 +184,7 @@ async function buildContextDeps(config: AnalyzeConfig): Promise<ContextDeps> {
   if (tiSlice) {
     const providers: TiProvider[] = await buildTiProviders(tiSlice);
     if (providers.length > 0) {
-      deps.ti = { providers, cache: globalTiCache };
+      deps.ti = { providers, cache: new DbTiCache(db) };
     }
   }
   return deps;

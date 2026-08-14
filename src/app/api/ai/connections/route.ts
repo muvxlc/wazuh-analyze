@@ -17,7 +17,7 @@ const connectionSchema = z.object({
   baseUrl: z.string().url().max(500),
   model: z.string().trim().min(1).max(200),
   apiKey: z.string().max(1_000).nullable().optional(),
-  timeoutMs: z.number().int().positive().max(300_000).default(30_000),
+  timeoutMs: z.number().int().positive().max(600_000).default(120_000),
   isDefault: z.boolean().default(false),
 });
 

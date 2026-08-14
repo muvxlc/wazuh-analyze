@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export function IncidentNotes({ incidentId, canManage }: { incidentId: string, canManage: boolean }) {
+  const t = useTranslations("incidents");
   const [notes, setNotes] = useState<any[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -41,16 +43,16 @@ export function IncidentNotes({ incidentId, canManage }: { incidentId: string, c
   };
 
   return (
-    <section className="rounded-[8px] border border-[var(--color-hairline)] p-6 mt-6">
+    <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">
       <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--color-ink-muted)]">
-        Analyst Notes
+        {t("analystNotes")}
       </h2>
-      
+
       <div className="flex flex-col gap-3 mb-6">
         {loading ? (
-          <div className="text-xs text-[var(--color-ink-muted)]">Loading notes...</div>
+          <div className="text-xs text-[var(--color-ink-muted)]">{t("loadingNotes")}</div>
         ) : notes.length === 0 ? (
-          <div className="text-xs text-[var(--color-ink-muted)]">No notes yet.</div>
+          <div className="text-xs text-[var(--color-ink-muted)]">{t("noNotes")}</div>
         ) : (
           notes.map(note => (
             <div key={note.id} className="rounded bg-[var(--color-canvas-subtle)] p-3 border border-[var(--color-hairline)]">
@@ -68,7 +70,7 @@ export function IncidentNotes({ incidentId, canManage }: { incidentId: string, c
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a case note..."
+            placeholder={t("notePlaceholder")}
             className="w-full rounded-[6px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] min-h-[80px]"
             disabled={submitting}
           />
@@ -77,7 +79,7 @@ export function IncidentNotes({ incidentId, canManage }: { incidentId: string, c
             disabled={submitting || !body.trim()}
             className="self-end rounded-[6px] bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
-            Add Note
+            {t("addNote")}
           </button>
         </form>
       )}

@@ -48,6 +48,73 @@ export interface IncidentTransitionInput {
   to: TransitionTarget;
 }
 
+// Assign (or unassign) an incident. Audited as incident.assign; no status change.
+export async function setIncidentAssignee(
+  db: Database,
+  actor: ActorContext,
+  incidentId: string,
+  assigneeUserId: string | null,
+  metadata: { requestId: string; ip: string | null; userAgent: string | null },
+): Promise<IncidentDetail> {
+  requirePermission(actor.permissions, "incidents.manage");
+
+  return db.transaction(async (tx) => {
+    const [incident] = await tx
+      .select()
+      .from(schema.incidents)
+      .where(eq(schema.incidents.id, incidentId))
+      .limit(1)
+      .for("update")
+      .execute();
+
+    if (!incident) {
+      throw new Error(`incident not found: ${incidentId}`);
+    }
+
+    // Validate target user exists when assigning.
+    if (assigneeUserId) {
+      const [target] = await tx
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.id, assigneeUserId))
+        .limit(1);
+      if (!target) throw new Error(`user not found: ${assigneeUserId}`);
+    }
+
+    const now = new Date();
+    await tx
+      .update(schema.incidents)
+      .set({ assigneeUserId, updatedAt: now })
+      .where(eq(schema.incidents.id, incidentId));
+
+    const auditEvent: AuditEventInput = {
+      actorUserId: actor.userId,
+      targetType: "incident",
+      targetId: incidentId,
+      action: "incident.assign",
+      ipAddress: metadata.ip,
+      userAgent: metadata.userAgent,
+      requestId: metadata.requestId,
+      detail: { assigneeUserId },
+    };
+    await writeAuditEvent(tx, auditEvent);
+
+    const [updated] = await tx
+      .select()
+      .from(schema.incidents)
+      .where(eq(schema.incidents.id, incidentId))
+      .limit(1);
+
+    const timeline = await fetchIncidentTimeline(tx, updated!.id);
+
+    return {
+      ...updated!,
+      status: updated!.status as IncidentStatus,
+      timeline,
+    };
+  });
+}
+
 export function getIncidentTransitionMatrix(): Record<TransitionTarget, { status: IncidentStatus; validFrom: readonly string[] }> {
   return Object.fromEntries(
     Object.entries(TRANSITION_MAP).map(([target, entry]) => [

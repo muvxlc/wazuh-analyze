@@ -71,3 +71,39 @@ Append-only log. After every task/checkpoint, document state + next step so any 
 **Baseline:** Unit 311 | Integration 105. Unit GREEN 311 passed. tsc GREEN. lint GREEN. Drizzle check GREEN.
 **Trade-offs:** Single global weekly report; per-report channel targeting deferred (ponytail in report-job.ts). mock-ai.mjs committed (was pre-existing untracked dev script).
 **Next:** All 5 tasks done. Await user review of PRs #2-#6.
+
+---
+## Post-Phase 5 — 2026-08-07 (cleanup + alert drawer UX)
+**Done:**
+1. PR #2 merged: Phase 5 integration into `main`.
+2. PR #3 merged: pg-boss background jobs.
+3. PR #4 merged: vulnerability inventory via Wazuh Indexer.
+4. PR #5 merged: approval-gated active responses.
+5. PR #6 merged: scheduled reports + case management.
+6. PR #7 merged: removed `scripts/mock-ai.mjs`; deleted 41 stale dev-DB `alert_analyses` rows whose verdict contained `Mock AI Verification`.
+7. PR #8 merged: centered and widened Alert Drawer; added responsive height and internal scrolling for complete raw payload visibility.
+8. PR #9 merged: added `AI SOC Analysis` + permission-gated `Analyze` button inside Alert Drawer; added `Full detail` link to `/alerts/[id]`; threaded `alerts.analyze` permission into alert list UI.
+
+**Verification:** `npm run lint` and `npx tsc --noEmit` passed after PR #9 changes. Earlier Phase 5 baseline: Unit 311 passed, Integration 105 passed, 2 skipped. No live Wazuh active-response execution test.
+**Known deferred items:**
+- No standalone sidebar Analyze page; analysis remains per-alert. Add `/analyze` only when bulk analysis/analysis queue management is required.
+- Weekly report remains one global scheduled report; per-report channel targeting deferred (`ponytail` in `report-job.ts`).
+- Live Wazuh active-response validation requires authorized Wazuh environment.
+- Full browser/E2E verification of drawer and Analyze interaction still pending.
+
+**Current state:** All planned Phase 5 tasks and follow-up PRs #7-#9 merged into `main`. Current worktree has unrelated untracked `scripts/test-webhook.sh`; left untouched.
+**Next:** Run browser smoke test for `/alerts`: open drawer, analyze, inspect verdict, follow Full detail. Then decide whether bulk Analyze warrants sidebar route.
+
+## Queue Management Actions — 2026-08-08
+**Done:**
+1. Fixed pg-boss raw SQL query bug in `/api/queues` where Drizzle `{ rows: [...] }` was returned empty by strict array checking, bringing back correct UI metrics and rendering the latest jobs table.
+2. Implemented row-level queue job actions: `POST /api/queues/jobs/[id]/cancel` and `POST /api/queues/jobs/[id]/retry`.
+3. Created dedicated `GET /api/queues/jobs` listing endpoint (retaining paginated support) with filterable queue list logic.
+4. Added Retry/Cancel buttons in `queues-client.tsx` and pulsing progress visualizer for actively running queue tasks (from `queue_progress`). 
+5. Handled `pg-boss` unique cancelled vs failed states (`resume` vs `retry`). Updated translation keys for `th.json` and `en.json`.
+6. Removed invalid enum queries mapping like `expired` and `retrying` against `job_state`.
+
+### Metrics Accuracy — 2026-08-08 (follow-up)
+**Done:** Metrics card "Analyzed (24h)" now reads from `alert_analyses` table directly (`COUNT(*) WHERE created_at >= now()-24h`) instead of summing `completed` state across all pg-boss queues. Fixes inclusion of `dispatch-notification` completes inflating the analyze count. Success rate recomputed from true analyze count vs failed analyze jobs. `processed = analyzed + failed`.
+**Verified:** `npx tsc --noEmit` clean; `src/app/api/queues/route.test.ts` 4/4 pass.
+**DB ground truth (dev, 2026-08-08):** boss.job analyze-alert = 49 completed / 42 failed / 1 cancelled (total 92); alert_analyses = 58 total (54 in 24h); alerts pending = 0.

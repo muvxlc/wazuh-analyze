@@ -36,7 +36,7 @@ const EMPTY: Draft = {
   baseUrl: "http://localhost:1234",
   model: "",
   apiKey: "",
-  timeoutMs: 30_000,
+  timeoutMs: 120_000,
   isDefault: false,
   apiKeySet: false,
 };
@@ -48,7 +48,7 @@ const AGNES_PRESET: Draft = {
   baseUrl: "https://apihub.agnes-ai.com/v1",
   model: "agnes-2.5-flash",
   apiKey: "",
-  timeoutMs: 30_000,
+  timeoutMs: 120_000,
   isDefault: false,
   apiKeySet: false,
 };
@@ -211,7 +211,7 @@ export default function SettingsAiPage() {
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
-              <button type="button" onClick={() => edit(connection)} className="outline-button px-3 py-1 text-sm">
+              <button type="button" onClick={() => edit(connection)} className="outline-button px-3 py-1 text-sm" aria-label={`Edit AI connection ${connection.name}`}>
                 {t("ai-conn-edit")}
               </button>
               <button
@@ -293,7 +293,7 @@ export default function SettingsAiPage() {
               id="ai-timeout"
               type="number"
               min={1000}
-              max={300000}
+              max={600000}
               className="auth-input"
               value={draft.timeoutMs}
               onChange={(e) => setDraft((d) => ({ ...d, timeoutMs: Number(e.target.value) }))}
@@ -323,7 +323,7 @@ export default function SettingsAiPage() {
           />
           {t("ai-conn-default")}
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="submit" disabled={saving} className="px-4 py-2 text-sm disabled:opacity-50">
             {saving ? t("ai-saving") : t("ai-save")}
           </button>
@@ -333,8 +333,8 @@ export default function SettingsAiPage() {
           <button type="button" onClick={() => setDraft(EMPTY)} className="outline-button px-4 py-2 text-sm">
             {t("ai-conn-clear")}
           </button>
-          {testResult && <p className="self-center text-sm text-[var(--color-ink-muted)]" role="status">{testResult}</p>}
         </div>
+        {testResult && <p className="text-sm text-[var(--color-ink-muted)]" role="status">{testResult}</p>}
       </form>
     </section>
   );

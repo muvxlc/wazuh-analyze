@@ -54,14 +54,14 @@ export function AgentTable({
             const keepAlive = toBangkokDate(agent.lastKeepAlive);
             return (
               <tr key={agent.id}>
-                <td>{agent.name} <small>({agent.id})</small></td>
+                <td className="max-w-[160px] truncate">{agent.name} <small>({agent.id})</small></td>
                 <td>{agent.status}</td>
                 <td>{agent.ip}</td>
                 <td>{agent.version}</td>
                 <td>{keepAlive ?? "-"}</td>
-                <td>{agent.groups?.length ? agent.groups.join(", ") : "-"}</td>
+                <td className="max-w-[180px] truncate">{agent.groups?.length ? agent.groups.join(", ") : "-"}</td>
                 {showTags && (
-                  <td>
+                  <td className="max-w-[200px]">
                     <AgentTagEditor
                       key={agent.id}
                       agentId={agent.id}

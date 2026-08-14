@@ -1,7 +1,8 @@
 import "server-only";
 
 import type { Database } from "../db/types";
-import type { HealthStatus } from "../wazuh/types";
+import type { HealthStatus, WazuhConfig } from "../wazuh/types";
+import { pingIndexer } from "../wazuh/indexer";
 
 /** Liveness: process alive, always ok. */
 export function checkLiveness(): HealthStatus {
@@ -31,4 +32,15 @@ export async function checkWazuhHealth(
   } catch {
     return { status: "down", details: { reason: "wazuh_unreachable" } };
   }
+}
+
+/** Wazuh Indexer health. */
+export async function checkIndexerHealth(
+  config: WazuhConfig,
+): Promise<HealthStatus> {
+  if (!config.indexer) {
+    return { status: "ok", details: { reason: "indexer_not_configured" } };
+  }
+  const ok = await pingIndexer(config);
+  return ok ? { status: "ok" } : { status: "down", details: { reason: "indexer_unreachable" } };
 }

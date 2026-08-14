@@ -5,10 +5,15 @@ import { useTranslations } from "next-intl";
 
 interface SocSettingsData {
   socAutoAnalyze: boolean;
+  socAutoAnalyzeVulnerabilities: boolean;
   socAutoAnalyzeMinLevel: number;
+  socAutoCreateIncident: boolean;
+  socAutoIncidentMinConfidence: number;
+  socAutoIncidentRequireCorroboration: boolean;
   tiProviders: string;
   abuseipdbKeySet: boolean;
   otxKeySet: boolean;
+  greynoiseKeySet: boolean;
   tiMinLevel: number;
   tiCacheTtlDays: number;
 }
@@ -21,6 +26,7 @@ interface State {
   /** Write-only key inputs: empty until the operator types a new secret. */
   abuseipdbKey: string;
   otxKey: string;
+  greynoiseKey: string;
 }
 
 export default function SettingsSocPage() {
@@ -32,6 +38,7 @@ export default function SettingsSocPage() {
     saved: false,
     abuseipdbKey: "",
     otxKey: "",
+    greynoiseKey: "",
   });
 
   useEffect(() => {
@@ -61,7 +68,11 @@ export default function SettingsSocPage() {
     try {
       const payload: Record<string, unknown> = {
         socAutoAnalyze: state.data.socAutoAnalyze,
+        socAutoAnalyzeVulnerabilities: state.data.socAutoAnalyzeVulnerabilities,
         socAutoAnalyzeMinLevel: state.data.socAutoAnalyzeMinLevel,
+        socAutoCreateIncident: state.data.socAutoCreateIncident,
+        socAutoIncidentMinConfidence: state.data.socAutoIncidentMinConfidence,
+        socAutoIncidentRequireCorroboration: state.data.socAutoIncidentRequireCorroboration,
         tiProviders: state.data.tiProviders.trim(),
         tiMinLevel: state.data.tiMinLevel,
         tiCacheTtlDays: state.data.tiCacheTtlDays,
@@ -69,6 +80,7 @@ export default function SettingsSocPage() {
       // Only send secret keys when the operator typed a new value.
       if (state.abuseipdbKey.trim()) payload.abuseipdbKey = state.abuseipdbKey.trim();
       if (state.otxKey.trim()) payload.otxKey = state.otxKey.trim();
+      if (state.greynoiseKey.trim()) payload.greynoiseKey = state.greynoiseKey.trim();
 
       const res = await fetch("/api/settings", {
         method: "PATCH",
@@ -82,11 +94,13 @@ export default function SettingsSocPage() {
         saved: true,
         abuseipdbKey: "",
         otxKey: "",
+        greynoiseKey: "",
         data: s.data
           ? {
               ...s.data,
               abuseipdbKeySet: s.abuseipdbKey.trim().length > 0 ? true : s.data.abuseipdbKeySet,
               otxKeySet: s.otxKey.trim().length > 0 ? true : s.data.otxKeySet,
+              greynoiseKeySet: s.greynoiseKey.trim().length > 0 ? true : s.data.greynoiseKeySet,
             }
           : null,
       }));
@@ -144,6 +158,15 @@ export default function SettingsSocPage() {
           {t("soc-auto-analyze")}
         </label>
 
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.data.socAutoAnalyzeVulnerabilities}
+            onChange={(e) => handleChange("socAutoAnalyzeVulnerabilities", e.target.checked)}
+          />
+          {t("soc-auto-analyze-vulnerabilities")}
+        </label>
+
         <div className="form-field">
           <label htmlFor="socAutoAnalyzeMinLevel" className="text-sm text-[var(--color-ink-muted)]">
             {t("soc-auto-analyze-min-level")}
@@ -159,6 +182,40 @@ export default function SettingsSocPage() {
           />
         </div>
 
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.data.socAutoCreateIncident}
+            onChange={(e) => handleChange("socAutoCreateIncident", e.target.checked)}
+          />
+          {t("soc-auto-create-incident")}
+        </label>
+
+        <div className="form-field">
+          <label htmlFor="socAutoIncidentMinConfidence" className="text-sm text-[var(--color-ink-muted)]">
+            {t("soc-auto-incident-min-confidence")}
+          </label>
+          <input
+            id="socAutoIncidentMinConfidence"
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={state.data.socAutoIncidentMinConfidence}
+            onChange={(e) => handleChange("socAutoIncidentMinConfidence", e.target.value)}
+            className="auth-input"
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.data.socAutoIncidentRequireCorroboration}
+            onChange={(e) => handleChange("socAutoIncidentRequireCorroboration", e.target.checked)}
+          />
+          {t("soc-auto-incident-require-corboration")}
+        </label>
+
         <div className="border-t border-[var(--color-hairline)] pt-4 space-y-4">
           <h2 className="text-sm font-semibold">Threat Intelligence</h2>
 
@@ -172,7 +229,7 @@ export default function SettingsSocPage() {
               value={state.data.tiProviders}
               onChange={(e) => handleChange("tiProviders", e.target.value)}
               className="auth-input"
-              placeholder="abuseipdb,otx"
+              placeholder="abuseipdb,otx,greynoise"
             />
           </div>
 
@@ -209,6 +266,24 @@ export default function SettingsSocPage() {
             />
             <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
               {state.data.otxKeySet ? "Key configured" : "No key set"}
+            </p>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="greynoiseKey" className="text-sm text-[var(--color-ink-muted)]">
+              {t("greynoise-key")}
+            </label>
+            <input
+              id="greynoiseKey"
+              type="password"
+              autoComplete="off"
+              value={state.greynoiseKey}
+              onChange={(e) => setState((s) => ({ ...s, greynoiseKey: e.target.value, saved: false }))}
+              className="auth-input"
+              placeholder={state.data.greynoiseKeySet ? "•••••••• (configured)" : "API key (write-only)"}
+            />
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+              {state.data.greynoiseKeySet ? "Key configured" : "No key set"}
             </p>
           </div>
 

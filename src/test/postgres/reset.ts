@@ -8,6 +8,7 @@ export const applicationTables = [
   "invites",
   "audit_events",
   "alerts",
+  "vulnerability_analyses",
   "agent_snapshots",
   "agent_tags",
   "system_settings",

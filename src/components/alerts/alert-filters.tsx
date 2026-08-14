@@ -69,7 +69,7 @@ export function AlertFilters({
       </label>
       {groupOptions.length > 0 && (
         <div className="form-field groups-filter-field">
-          <legend>Agent groups</legend>
+          <span className="groups-filter-label">Agent groups</span>
           <ChecklistPopover
             ariaLabel="Filter by agent groups"
             options={popoverOptions}

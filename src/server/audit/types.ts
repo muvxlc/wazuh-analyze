@@ -21,10 +21,16 @@ export type AuditAction =
   | "incident.mitigate"
   | "incident.resolve"
   | "incident.reopen"
+  | "incident.assign"
   | "notification.send"
   | "action.propose"
   | "action.approve"
-  | "action.execute";
+  | "action.execute"
+  | "alert.fp_suppress"
+  | "fp_signature.create"
+  | "fp_signature.delete"
+  | "fp_signature.renew"
+  | "vulnerability.analyze";
 
 export interface AuditEventInput {
   actorUserId: string | null;

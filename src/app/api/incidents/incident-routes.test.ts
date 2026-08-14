@@ -12,6 +12,7 @@ process.env.SETTINGS_ENCRYPTION_KEY = "k".repeat(32);
 const mockListIncidents = vi.fn();
 const mockGetIncidentDetail = vi.fn();
 const mockTransitionIncident = vi.fn();
+const mockSetIncidentAssignee = vi.fn();
 const mockAuthenticateRequest = vi.fn();
 
 vi.mock("../../../server/db/client", () => ({
@@ -28,17 +29,20 @@ vi.mock("../../../server/config", () => ({
 vi.mock("../../../server/auth/authenticate", () => ({
   authenticateRequest: (...args: unknown[]) => mockAuthenticateRequest(...args),
 }));
+vi.mock("server-only", () => ({}));
 vi.mock("../../../server/incidents/query", () => ({
   listIncidents: (...args: unknown[]) => mockListIncidents(...args),
   getIncidentDetail: (...args: unknown[]) => mockGetIncidentDetail(...args),
 }));
 vi.mock("../../../server/incidents/workflow", () => ({
   transitionIncident: (...args: unknown[]) => mockTransitionIncident(...args),
+  setIncidentAssignee: (...args: unknown[]) => mockSetIncidentAssignee(...args),
 }));
 
 import { GET as listIncidentsRoute } from "./route";
-import { GET as incidentDetailRoute } from "./[id]/route";
+import { GET as incidentDetailRoute, PATCH as incidentPatchRoute } from "./[id]/route";
 import { POST as incidentStatusRoute } from "./[id]/status/route";
+import { POST as incidentBulkRoute } from "./bulk/route";
 import { AppError } from "../../../server/errors";
 
 describe("api/incidents routes", () => {
@@ -63,6 +67,22 @@ describe("api/incidents routes", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ data: { items: [{ id: "inc-1" }], total: 1 } });
+  });
+
+  it("passes search and assignee filters to listIncidents", async () => {
+    mockAuthenticateRequest.mockResolvedValue({ id: "u-1", role: "admin", permissions: ["incidents.list"] });
+    mockListIncidents.mockResolvedValue({ items: [], total: 0 });
+    const res = await listIncidentsRoute(
+      new Request("http://localhost:3000/api/incidents?q=ssh&limit=10&offset=20", {
+        headers: { cookie: "wazuh_session=valid" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockListIncidents).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ q: "ssh", limit: 10, offset: 20 }),
+    );
   });
 
   it("returns 404 when incident not found", async () => {
@@ -119,5 +139,41 @@ describe("api/incidents routes", () => {
       { params: Promise.resolve({ id: "inc-1" }) },
     );
     expect(res.status).toBe(403);
+  });
+
+  it("PATCH assign calls setIncidentAssignee and returns detail", async () => {
+    mockAuthenticateRequest.mockResolvedValue({ id: "u-1", role: "admin", permissions: ["incidents.manage"] });
+    mockSetIncidentAssignee.mockResolvedValue({ id: "inc-1", assigneeUserId: "u-2", status: "open" });
+    const res = await incidentPatchRoute(
+      new Request("http://localhost:3000/api/incidents/inc-1", {
+        method: "PATCH",
+        headers: { cookie: "wazuh_session=valid", origin: "http://localhost:3000", "content-type": "application/json" },
+        body: JSON.stringify({ assigneeUserId: "11111111-1111-4111-8111-111111111111" }),
+      }),
+      { params: Promise.resolve({ id: "inc-1" }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockSetIncidentAssignee).toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.data.assigneeUserId).toBe("u-2");
+  });
+
+  it("bulk applies status + records per-id results", async () => {
+    mockAuthenticateRequest.mockResolvedValue({ id: "u-1", role: "admin", permissions: ["incidents.manage"] });
+    mockTransitionIncident
+      .mockResolvedValueOnce({ id: "inc-a", status: "resolved" })
+      .mockRejectedValueOnce(new Error("cannot transition"));
+    const res = await incidentBulkRoute(
+      new Request("http://localhost:3000/api/incidents/bulk", {
+        method: "POST",
+        headers: { cookie: "wazuh_session=valid", origin: "http://localhost:3000", "content-type": "application/json" },
+        body: JSON.stringify({ ids: ["11111111-1111-4111-8111-11111111111a", "11111111-1111-4111-8111-11111111111b"], to: "resolved" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.succeeded).toBe(1);
+    expect(body.data.failed).toBe(1);
+    expect(body.data.results).toHaveLength(2);
   });
 });

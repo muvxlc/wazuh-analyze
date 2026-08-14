@@ -3,6 +3,7 @@ import {
   InMemoryTiCache,
   aggregateLookup,
   lookupIp,
+  lookupIoc,
   mergeVerdicts,
   registerTiProvider,
   resolveTiProviders,
@@ -74,8 +75,16 @@ describe("threat intel layer", () => {
     );
   });
 
+  it("refreshAbuseIpDbBlacklist returns 0 on network failure", async () => {
+    const cache = new InMemoryTiCache();
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("fetch failed"));
+    await expect(refreshAbuseIpDbBlacklist("secret", cache, {
+      fetchFn: fetchMock as unknown as typeof fetch,
+    })).rejects.toThrow("fetch failed");
+  });
+
   it("otx extracts pulse count", async () => {
-    const otx = createOtxProvider();
+    const otx = createOtxProvider({ apiKey: "key" });
     const fetchMock = vi.fn().mockResolvedValueOnce(
       Response.json({ pulse_info: { count: 3 }, reputation: { reputation: "malicious" } }),
     );
@@ -125,5 +134,86 @@ describe("threat intel layer", () => {
     registerTiProvider({ name: "mock-b", lookup: async () => null });
     const resolved = resolveTiProviders(["mock-a", "nonexistent", "mock-b"]);
     expect(resolved.map((r) => r.name)).toEqual(["mock-a", "mock-b"]);
+  });
+
+  describe("lookupIoc", () => {
+    it("delegates to providers for domain indicators", async () => {
+      const mock = {
+        name: "mock",
+        lookup: async (ctx: { indicator: string; type: string }) =>
+          ctx.type === "domain"
+            ? { indicator: ctx.indicator, type: "domain" as const, abuseScore: 60, abuseCategory: "phishing", pulseCount: 2, sources: ["mock"] }
+            : null,
+      };
+      const result = await lookupIoc("evil.com", "domain", [mock], { cache: new InMemoryTiCache() });
+      expect(result).toEqual(
+        expect.objectContaining({ indicator: "evil.com", type: "domain", abuseScore: 60 }),
+      );
+    });
+
+    it("delegates to providers for hash indicators", async () => {
+      const mock = {
+        name: "mock",
+        lookup: async (ctx: { indicator: string; type: string }) =>
+          ctx.type === "hash"
+            ? { indicator: ctx.indicator, type: "hash" as const, abuseScore: 90, abuseCategory: "malware", pulseCount: 5, sources: ["mock"] }
+            : null,
+      };
+      const result = await lookupIoc("d41d8cd98f00b204e9800998ecf8427e", "hash", [mock], { cache: new InMemoryTiCache() });
+      expect(result).toEqual(
+        expect.objectContaining({ indicator: "d41d8cd98f00b204e9800998ecf8427e", type: "hash", abuseScore: 90 }),
+      );
+    });
+
+    it("uses cache for domain/hash", async () => {
+      const cache = new InMemoryTiCache();
+      await cache.set({ indicator: "bad.com", type: "domain", abuseScore: 40, abuseCategory: "spam", pulseCount: null, sources: ["cached"] });
+      const called = vi.fn().mockResolvedValue(null);
+      const result = await lookupIoc("bad.com", "domain", [{ name: "mock", lookup: called }], { cache });
+      expect(result).toEqual(expect.objectContaining({ abuseScore: 40 }));
+      expect(called).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("OTX domain/hash support", () => {
+    it("returns null without API key for any type", async () => {
+      const otx = createOtxProvider();
+      expect(await otx.lookup({ indicator: "evil.com", type: "domain" })).toBeNull();
+      expect(await otx.lookup({ indicator: "abc123", type: "hash" })).toBeNull();
+    });
+
+    it("looks up domain with correct URL and returns verdict", async () => {
+      const otx = createOtxProvider({ apiKey: "key" });
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        Response.json({ pulse_info: { count: 7 }, reputation: { reputation: "malicious" } }),
+      );
+      const res = await otx.lookup({ indicator: "evil.com", type: "domain" }, fetchMock as unknown as typeof fetch);
+      expect(res).toEqual({
+        indicator: "evil.com",
+        type: "domain",
+        abuseScore: 7,
+        abuseCategory: "malicious",
+        pulseCount: 7,
+        sources: ["otx"],
+      });
+      expect(String(fetchMock.mock.calls[0][0])).toContain("/indicators/domain/");
+    });
+
+    it("looks up hash with correct URL and returns verdict", async () => {
+      const otx = createOtxProvider({ apiKey: "key" });
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        Response.json({ pulse_info: { count: 12 }, reputation: { reputation: "malware" } }),
+      );
+      const res = await otx.lookup({ indicator: "d41d8cd98f00b204e9800998ecf8427e", type: "hash" }, fetchMock as unknown as typeof fetch);
+      expect(res?.type).toBe("hash");
+      expect(res?.pulseCount).toBe(12);
+      expect(String(fetchMock.mock.calls[0][0])).toContain("/indicators/fileSHA256/");
+    });
+
+    it("returns null on 404 for unknown indicator", async () => {
+      const otx = createOtxProvider({ apiKey: "key" });
+      const fetchMock = vi.fn().mockResolvedValueOnce(new Response("not found", { status: 404 }));
+      expect(await otx.lookup({ indicator: "unknown.example", type: "domain" }, fetchMock as unknown as typeof fetch)).toBeNull();
+    });
   });
 });

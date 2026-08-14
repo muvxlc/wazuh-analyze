@@ -67,6 +67,7 @@ export function MobileDrawer({ isOpen, onClose, permissions }: MobileDrawerProps
     <div
       role="dialog"
       aria-modal="true"
+      aria-label="Main navigation"
       ref={drawerRef}
       className="fixed inset-0 z-50 flex bg-black/50 md:hidden"
       onClick={(e) => {

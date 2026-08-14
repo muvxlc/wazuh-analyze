@@ -26,9 +26,12 @@ export async function POST(request: Request): Promise<Response> {
     const user = await authenticateRequest(db, token);
     requirePermission(user.permissions, "chat.use");
 
-    const parsed = requestSchema.parse(await request.json());
+    const parsed = requestSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return Response.json({ error: { code: "invalid_input", requestId } }, { status: 422 });
+    }
 
-    const resolved = await resolveAiConnection(db, parsed.connection_id ?? null, config.settingsEncryptionKey);
+    const resolved = await resolveAiConnection(db, parsed.data.connection_id ?? null, config.settingsEncryptionKey);
     const provider = createChatProvider({
       provider: resolved.provider,
       baseUrl: resolved.baseUrl,
@@ -36,7 +39,7 @@ export async function POST(request: Request): Promise<Response> {
       apiKey: resolved.apiKey,
       timeoutMs: resolved.timeoutMs,
     });
-    const content = await provider.chat(parsed.system_prompt, parsed.input);
+    const content = await provider.chat(parsed.data.system_prompt, parsed.data.input);
     return Response.json({ data: { content }, requestId }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return toErrorResponse(error, requestId);

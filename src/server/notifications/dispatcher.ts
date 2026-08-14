@@ -113,7 +113,7 @@ async function logDelivery(
     ruleId,
     channelId,
     eventType: event.type,
-    targetType: event.type.startsWith("alert") ? "alert" : "incident",
+    targetType: event.type.startsWith("alert") ? "alert" : event.type.startsWith("vulnerability") ? "vulnerability" : "incident",
     targetId: event.targetId,
     status: result.success ? "sent" : "failed",
     statusCode: result.statusCode ?? null,

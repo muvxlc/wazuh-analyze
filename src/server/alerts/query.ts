@@ -5,7 +5,8 @@ import type { ActorContext } from "../authorization/permissions";
 import { requirePermission } from "../authorization/require";
 import { resolvePermissions } from "../authorization/resolve";
 import type { Role } from "../authorization/permissions";
-import type { AlertListQuery, AlertPage, AlertRecord, AlertStatus } from "./types";
+import type { AlertGroupPage, AlertGroupRow, AlertListQuery, AlertPage, AlertRecord, AlertStatus } from "./types";
+import { DEFAULT_GROUP_WINDOW_MINUTES } from "./types";
 
 export type { AlertListQuery, AlertPage };
 
@@ -139,6 +140,12 @@ function buildWhereClause(query: AlertListQuery): import("drizzle-orm").SQL | un
   if (query.levelMax !== undefined) {
     clauses.push(lte(schema.alerts.level, query.levelMax));
   }
+  if (query.since) {
+    clauses.push(gte(schema.alerts.wazuhTimestamp, query.since));
+  }
+  if (query.until) {
+    clauses.push(lte(schema.alerts.wazuhTimestamp, query.until));
+  }
   if (query.search) {
     clauses.push(
       or(
@@ -245,6 +252,158 @@ export async function getAlertDetail(
       occurredAt: event.occurredAt,
       metadata: event.metadata as Record<string, unknown>,
     })),
+  };
+}
+
+export async function listAlertGroups(
+  db: Database,
+  actor: ActorContext,
+  query: AlertListQuery = {},
+): Promise<AlertGroupPage> {
+  requirePermission(actor.permissions, "alerts.list");
+
+  const limit = validateLimit(query.limit);
+  const cursor = parseCursor(query.cursor);
+  const windowMinutes = query.windowMinutes ?? DEFAULT_GROUP_WINDOW_MINUTES;
+  const baseWhere = buildWhereClause(query);
+
+  // Gap-and-islands: alerts sharing (agent_id, rule_id, level) collapse into one
+  // group only while consecutive occurrences stay within `windowMinutes`. A long
+  // silence starts a fresh group. Incident linkage is aggregated per island.
+  // ponytail: groups can split across cursor boundary; acceptable for triage.
+  // Upgrade path: keyset paginate on the island key instead of rep_ingested_at.
+  const windowInterval = sql`make_interval(mins => ${windowMinutes})`;
+
+  const rows = await db.execute(sql`
+    WITH filtered AS (
+      SELECT
+        id, agent_id, agent_name, rule_id, level,
+        rule_description, status, wazuh_timestamp, ingested_at
+      FROM ${schema.alerts}
+      WHERE ${baseWhere ?? sql`TRUE`}
+    ),
+    gaped AS (
+      SELECT
+        f.*,
+        COALESCE(
+          (f.wazuh_timestamp - LAG(f.wazuh_timestamp) OVER w) > ${windowInterval},
+          true
+        ) AS is_break
+      FROM filtered f
+      WINDOW w AS (
+        PARTITION BY f.agent_id, f.rule_id, f.level
+        ORDER BY f.wazuh_timestamp
+      )
+    ),
+    islanded AS (
+      SELECT
+        g.*,
+        SUM(CASE WHEN g.is_break THEN 1 ELSE 0 END) OVER (
+          PARTITION BY g.agent_id, g.rule_id, g.level
+          ORDER BY g.wazuh_timestamp
+          ROWS UNBOUNDED PRECEDING
+        ) AS island_num
+      FROM gaped g
+    ),
+    islands AS (
+      SELECT
+        agent_id, rule_id, level, island_num,
+        MIN(wazuh_timestamp) AS first_seen,
+        MAX(wazuh_timestamp) AS last_seen,
+        MAX(ingested_at) AS rep_ingested_at,
+        MAX(agent_name) AS agent_name,
+        COUNT(*) AS group_count
+      FROM islanded
+      GROUP BY agent_id, rule_id, level, island_num
+    ),
+    reps AS (
+      SELECT DISTINCT ON (agent_id, rule_id, level, island_num)
+        agent_id, rule_id, level, island_num,
+        id AS representative_id,
+        rule_description AS rep_desc,
+        status AS rep_status
+      FROM islanded
+      ORDER BY agent_id, rule_id, level, island_num, ingested_at DESC, wazuh_timestamp DESC
+    ),
+    inc_link AS (
+      SELECT
+        i.agent_id, i.rule_id, i.level, i.island_num,
+        COUNT(DISTINCT ia.incident_id) AS incident_count,
+        MIN(inc.id::text) FILTER (WHERE inc.status <> 'resolved') AS open_incident_id
+      FROM islanded i
+      JOIN ${schema.incidentAlerts} ia ON ia.alert_id = i.id
+      LEFT JOIN ${schema.incidents} inc ON inc.id = ia.incident_id
+      GROUP BY i.agent_id, i.rule_id, i.level, i.island_num
+    )
+    SELECT
+      isl.agent_id, isl.rule_id, isl.level,
+      isl.first_seen, isl.last_seen, isl.group_count,
+      isl.rep_ingested_at, isl.agent_name,
+      r.representative_id, r.rep_desc AS rule_description, r.rep_status,
+      COALESCE(lk.incident_count, 0) AS incident_count,
+      lk.open_incident_id
+    FROM islands isl
+    JOIN reps r
+      ON r.agent_id = isl.agent_id
+     AND r.rule_id = isl.rule_id
+     AND r.level = isl.level
+     AND r.island_num = isl.island_num
+    LEFT JOIN inc_link lk
+      ON lk.agent_id = isl.agent_id
+     AND lk.rule_id = isl.rule_id
+     AND lk.level = isl.level
+     AND lk.island_num = isl.island_num
+    ${cursor ? sql`WHERE isl.rep_ingested_at < ${cursor.ingestedAt}
+                   OR (isl.rep_ingested_at = ${cursor.ingestedAt}
+                       AND r.representative_id < ${cursor.id})` : sql``}
+    ORDER BY isl.rep_ingested_at DESC, r.representative_id DESC
+    LIMIT ${limit + 1}
+  `);
+
+  // Drizzle's node-postgres db.execute() returns { rows: [...] }.
+  const raw = (rows as unknown as { rows: Array<{
+    agent_id: string | null;
+    agent_name: string | null;
+    rule_id: string | null;
+    level: number;
+    first_seen: string | Date;
+    last_seen: string | Date;
+    rep_ingested_at: string | Date;
+    group_count: number;
+    representative_id: string;
+    rule_description: string;
+    rep_status: AlertStatus;
+    incident_count: number;
+    open_incident_id: string | null;
+  }> }).rows;
+
+  const hasMore = raw.length > limit;
+  const sliced = hasMore ? raw.slice(0, -1) : raw;
+
+  const nextCursor = hasMore && sliced.length > 0
+    ? encodeCursor(new Date(sliced[sliced.length - 1].rep_ingested_at), sliced[sliced.length - 1].representative_id)
+    : null;
+
+  const groups: AlertGroupRow[] = sliced.map((row) => ({
+    key: `${row.agent_id ?? ""}:${row.rule_id ?? ""}:${row.level}:${row.representative_id}`,
+    count: Number(row.group_count),
+    firstSeen: new Date(row.first_seen),
+    lastSeen: new Date(row.last_seen),
+    level: row.level,
+    agentId: row.agent_id,
+    agentName: row.agent_name,
+    ruleId: row.rule_id,
+    ruleDescription: row.rule_description,
+    status: row.rep_status,
+    representativeAlertId: row.representative_id,
+    incidentCount: Number(row.incident_count),
+    openIncidentId: row.open_incident_id ?? null,
+  }));
+
+  return {
+    groups,
+    cursor: nextCursor,
+    hasNext: hasMore,
   };
 }
 

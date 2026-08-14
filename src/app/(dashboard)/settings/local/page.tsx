@@ -134,7 +134,7 @@ export default function SettingsLocalPage() {
             className="auth-input"
           />
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--color-hairline)] pt-3">
+        <div className="flex flex-col items-center justify-between gap-2 border-t border-[var(--color-hairline)] pt-3 sm:flex-row">
           <div>
             <span className="text-sm text-[var(--color-ink-muted)]">{t("local-node-env")}</span>
             <span className="ml-2 text-sm font-medium capitalize">{state.data.nodeEnv}</span>

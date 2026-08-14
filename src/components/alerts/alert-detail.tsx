@@ -1,11 +1,15 @@
+import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import type { AlertDetail as AlertDetailType } from "../../server/alerts/types";
 import { RawJson } from "./raw-json";
 import { AlertAnalysisPanel } from "./alert-analysis-panel";
 
-export function AlertDetail({ alert, canAnalyze = false }: { alert: AlertDetailType; canAnalyze?: boolean }) {
+export async function AlertDetail({ alert, canAnalyze = false }: { alert: AlertDetailType; canAnalyze?: boolean }) {
+  const t = await getTranslations("alerts");
   return (
     <article className="page-section alert-detail">
       <header className="panel alert-detail-header">
+        <Link href="/alerts" className="outline-button">← {t("back")}</Link>
         <h1>{alert.ruleDescription}</h1>
         <p>{alert.status} · severity {alert.level}</p>
       </header>

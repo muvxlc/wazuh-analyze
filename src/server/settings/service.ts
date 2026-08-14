@@ -16,6 +16,9 @@ const SECRET_KEYS: ReadonlySet<SystemSettingKey> = new Set<SystemSettingKey>([
   "wazuhUsername",
   "abuseipdbKey",
   "otxKey",
+  "greynoiseKey",
+  "wazuhIndexerUsername",
+  "wazuhIndexerPassword",
 ]);
 
 export function isSecretKey(key: SystemSettingKey): boolean {
@@ -32,12 +35,23 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "maintenanceBatchSize",
   "appUrl",
   "socAutoAnalyze",
+  "socAutoAnalyzeVulnerabilities",
   "socAutoAnalyzeMinLevel",
+  "socAutoCreateIncident",
+  "socAutoIncidentMinConfidence",
+  "socAutoIncidentRequireCorroboration",
   "tiProviders",
   "abuseipdbKey",
   "otxKey",
   "tiMinLevel",
   "tiCacheTtlDays",
+  "wazuhIndexerUrl",
+  "wazuhIndexerUsername",
+  "wazuhIndexerPassword",
+  "greynoiseKey",
+  "fpMemoryEnabled",
+  "fpMemoryTtlDays",
+  "fpMemorySeverityFloor",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {
@@ -89,15 +103,29 @@ export async function resolveEffectiveConfig(
   const wazuhPassword = eff("wazuhPassword", config.wazuh.password);
   const wazuhCaPath = eff("wazuhCaPath", config.wazuh.caPath ?? undefined);
   const wazuhAllowInsecure = eff("wazuhAllowInsecureTls", String(config.wazuh.allowInsecureTls));
+  const wazuhIndexerUrl = eff("wazuhIndexerUrl", config.wazuh.indexer?.url.toString());
+  const wazuhIndexerUsername = eff("wazuhIndexerUsername", config.wazuh.indexer?.username);
+  const wazuhIndexerPassword = eff("wazuhIndexerPassword", config.wazuh.indexer?.password);
   const retention = eff("alertRetentionDays", String(config.alertRetentionDays));
   const batch = eff("maintenanceBatchSize", String(config.maintenanceBatchSize));
   const socAuto = eff("socAutoAnalyze", String(config.socAutoAnalyze));
+  const socAutoVulnerabilities = eff(
+    "socAutoAnalyzeVulnerabilities",
+    String(config.socAutoAnalyzeVulnerabilities ?? false),
+  );
   const socMinLevel = eff("socAutoAnalyzeMinLevel", String(config.socAutoAnalyzeMinLevel));
+  const socCreate = eff("socAutoCreateIncident", String(config.socAutoCreateIncident));
+  const socMinConf = eff("socAutoIncidentMinConfidence", String(config.socAutoIncidentMinConfidence));
+  const socCorrob = eff("socAutoIncidentRequireCorroboration", String(config.socAutoIncidentRequireCorroboration));
   const tiProviders = eff("tiProviders", config.ti ? config.ti.providers.join(",") : "");
   const abuseipdb = eff("abuseipdbKey", config.ti?.abuseipdbKey ?? undefined);
   const otx = eff("otxKey", config.ti?.otxKey ?? undefined);
   const tiMinLevel = eff("tiMinLevel", config.ti ? String(config.ti.minLevel) : undefined);
   const tiCacheTtl = eff("tiCacheTtlDays", config.ti ? String(config.ti.cacheTtlDays) : undefined);
+  const greynoise = eff("greynoiseKey", config.ti?.greynoiseKey ?? undefined);
+  const fpMemoryEnabled = eff("fpMemoryEnabled", String(config.fpMemoryEnabled));
+  const fpMemoryTtlDays = eff("fpMemoryTtlDays", String(config.fpMemoryTtlDays));
+  const fpMemorySeverityFloor = eff("fpMemorySeverityFloor", String(config.fpMemorySeverityFloor));
   const effectiveApiUrl = wazuhApiUrl.value ? new URL(wazuhApiUrl.value) : config.wazuh.apiUrl;
   const effectiveAllowInsecureTls = wazuhAllowInsecure.value === "true";
   if (config.nodeEnv === "production") {
@@ -114,13 +142,26 @@ export async function resolveEffectiveConfig(
     alertRetentionDays: retention.value !== null ? Number(retention.value) : config.alertRetentionDays,
     maintenanceBatchSize: batch.value !== null ? Number(batch.value) : config.maintenanceBatchSize,
     socAutoAnalyze: socAuto.value !== null ? socAuto.value === "true" : config.socAutoAnalyze,
+    socAutoAnalyzeVulnerabilities:
+      socAutoVulnerabilities.value !== null
+        ? socAutoVulnerabilities.value === "true"
+        : (config.socAutoAnalyzeVulnerabilities ?? false),
     socAutoAnalyzeMinLevel:
       socMinLevel.value !== null ? Number(socMinLevel.value) : config.socAutoAnalyzeMinLevel,
+    socAutoCreateIncident: socCreate.value !== null ? socCreate.value === "true" : config.socAutoCreateIncident,
+    socAutoIncidentMinConfidence:
+      socMinConf.value !== null ? Number(socMinConf.value) : config.socAutoIncidentMinConfidence,
+    socAutoIncidentRequireCorroboration:
+      socCorrob.value !== null ? socCorrob.value === "true" : config.socAutoIncidentRequireCorroboration,
+    fpMemoryEnabled: fpMemoryEnabled.value !== null ? fpMemoryEnabled.value === "true" : config.fpMemoryEnabled,
+    fpMemoryTtlDays: fpMemoryTtlDays.value !== null ? Number(fpMemoryTtlDays.value) : config.fpMemoryTtlDays,
+    fpMemorySeverityFloor: fpMemorySeverityFloor.value !== null ? Number(fpMemorySeverityFloor.value) : config.fpMemorySeverityFloor,
     ti: config.ti
       ? {
           providers: tiProviders.value ? tiProviders.value.split(",").map((s) => s.trim()).filter(Boolean) : config.ti.providers,
           abuseipdbKey: abuseipdb.value ?? config.ti.abuseipdbKey,
           otxKey: otx.value ?? config.ti.otxKey,
+          greynoiseKey: greynoise.value ?? config.ti.greynoiseKey,
           minLevel: tiMinLevel.value !== null ? Number(tiMinLevel.value) : config.ti.minLevel,
           cacheTtlDays: tiCacheTtl.value !== null ? Number(tiCacheTtl.value) : config.ti.cacheTtlDays,
         }
@@ -132,6 +173,15 @@ export async function resolveEffectiveConfig(
       password: wazuhPassword.value ?? config.wazuh.password,
       caPath: wazuhCaPath.value !== null && wazuhCaPath.value !== "" ? wazuhCaPath.value : null,
       allowInsecureTls: effectiveAllowInsecureTls,
+      indexer: wazuhIndexerUrl.value
+        ? {
+            url: new URL(wazuhIndexerUrl.value),
+            username: wazuhIndexerUsername.value ?? config.wazuh.indexer?.username ?? wazuhUsername.value ?? config.wazuh.username,
+            password: wazuhIndexerPassword.value ?? config.wazuh.indexer?.password ?? wazuhPassword.value ?? config.wazuh.password,
+            caPath: config.wazuh.indexer?.caPath ?? (wazuhCaPath.value !== null && wazuhCaPath.value !== "" ? wazuhCaPath.value : null),
+            allowInsecureTls: config.wazuh.indexer?.allowInsecureTls ?? effectiveAllowInsecureTls,
+          }
+        : config.wazuh.indexer,
     },
   };
 }
@@ -147,12 +197,23 @@ export interface SettingsView {
   wazuhPasswordSet: boolean;
   wazuhCaPath: string | null;
   socAutoAnalyze: boolean;
+  socAutoAnalyzeVulnerabilities: boolean;
   socAutoAnalyzeMinLevel: number;
+  socAutoCreateIncident: boolean;
+  socAutoIncidentMinConfidence: number;
+  socAutoIncidentRequireCorroboration: boolean;
   tiProviders: string;
   abuseipdbKeySet: boolean;
   otxKeySet: boolean;
+  greynoiseKeySet: boolean;
   tiMinLevel: number;
   tiCacheTtlDays: number;
+  fpMemoryEnabled: boolean;
+  fpMemoryTtlDays: number;
+  fpMemorySeverityFloor: number;
+  wazuhIndexerUrl: string;
+  wazuhIndexerUsernameSet: boolean;
+  wazuhIndexerPasswordSet: boolean;
   /** Per-key source flags: true = value came from DB row. */
   sources: Partial<Record<SystemSettingKey, boolean>>;
 }
@@ -177,12 +238,23 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
     wazuhPasswordSet: effective.wazuh.password.length > 0,
     wazuhCaPath: effective.wazuh.caPath,
     socAutoAnalyze: effective.socAutoAnalyze,
+    socAutoAnalyzeVulnerabilities: effective.socAutoAnalyzeVulnerabilities ?? false,
     socAutoAnalyzeMinLevel: effective.socAutoAnalyzeMinLevel,
+    socAutoCreateIncident: effective.socAutoCreateIncident,
+    socAutoIncidentMinConfidence: effective.socAutoIncidentMinConfidence,
+    socAutoIncidentRequireCorroboration: effective.socAutoIncidentRequireCorroboration,
     tiProviders: effective.ti?.providers.join(",") ?? "abuseipdb,otx",
     abuseipdbKeySet: (effective.ti?.abuseipdbKey ?? "").length > 0,
     otxKeySet: (effective.ti?.otxKey ?? "").length > 0,
+    greynoiseKeySet: (effective.ti?.greynoiseKey ?? "").length > 0,
     tiMinLevel: effective.ti?.minLevel ?? 7,
     tiCacheTtlDays: effective.ti?.cacheTtlDays ?? 30,
+    fpMemoryEnabled: effective.fpMemoryEnabled,
+    fpMemoryTtlDays: effective.fpMemoryTtlDays,
+    fpMemorySeverityFloor: effective.fpMemorySeverityFloor,
+    wazuhIndexerUrl: effective.wazuh.indexer?.url.origin ?? "",
+    wazuhIndexerUsernameSet: (effective.wazuh.indexer?.username ?? "").length > 0,
+    wazuhIndexerPasswordSet: (effective.wazuh.indexer?.password ?? "").length > 0,
     sources: {
       wazuhApiUrl: src("wazuhApiUrl"),
       wazuhUsername: src("wazuhUsername"),
@@ -192,12 +264,23 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       alertRetentionDays: src("alertRetentionDays"),
       maintenanceBatchSize: src("maintenanceBatchSize"),
       socAutoAnalyze: src("socAutoAnalyze"),
+      socAutoAnalyzeVulnerabilities: src("socAutoAnalyzeVulnerabilities"),
       socAutoAnalyzeMinLevel: src("socAutoAnalyzeMinLevel"),
+      socAutoCreateIncident: src("socAutoCreateIncident"),
+      socAutoIncidentMinConfidence: src("socAutoIncidentMinConfidence"),
+      socAutoIncidentRequireCorroboration: src("socAutoIncidentRequireCorroboration"),
       tiProviders: src("tiProviders"),
       abuseipdbKey: src("abuseipdbKey"),
       otxKey: src("otxKey"),
+      greynoiseKey: src("greynoiseKey"),
       tiMinLevel: src("tiMinLevel"),
       tiCacheTtlDays: src("tiCacheTtlDays"),
+      wazuhIndexerUrl: src("wazuhIndexerUrl"),
+      wazuhIndexerUsername: src("wazuhIndexerUsername"),
+      wazuhIndexerPassword: src("wazuhIndexerPassword"),
+      fpMemoryEnabled: src("fpMemoryEnabled"),
+      fpMemoryTtlDays: src("fpMemoryTtlDays"),
+      fpMemorySeverityFloor: src("fpMemorySeverityFloor"),
     },
   };
 }

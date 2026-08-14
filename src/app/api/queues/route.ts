@@ -8,6 +8,7 @@ import { SESSION_COOKIE } from "../../../server/auth/cookies";
 import { getPgBoss } from "../../../server/daemon/pg-boss";
 import {
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,
@@ -17,6 +18,7 @@ import { countPendingAlerts } from "../../../server/daemon/backfill";
 
 const QUEUE_NAMES = [
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,
@@ -37,7 +39,11 @@ interface CountRow { name: string; state: string; count: number; }
 interface SeriesRow { hour: string | Date; name: string; total: number; }
 
 function asRows<T>(value: unknown): T[] {
-  return Array.isArray(value) ? value as T[] : [];
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && "rows" in value && Array.isArray((value as { rows: unknown }).rows)) {
+    return (value as { rows: T[] }).rows;
+  }
+  return [];
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -53,7 +59,7 @@ export async function GET(request: Request): Promise<Response> {
     const queues = await pgBoss.getQueues([...QUEUE_NAMES]);
     const result = Object.fromEntries(queues.map((q) => [q.name, q]));
 
-    const [jobResult, countResult, seriesResult, progressResult, pendingAlerts] = await Promise.all([
+    const [jobResult, countResult, seriesResult, progressResult, pendingAlerts, analyzedCountResult] = await Promise.all([
       db.execute(sql`
         SELECT id, name, state::text, retry_count, created_on, started_on, completed_on, data
         FROM boss.job
@@ -84,6 +90,11 @@ export async function GET(request: Request): Promise<Response> {
         LIMIT 20
       `),
       countPendingAlerts(db),
+      db.execute(sql`
+        SELECT count(*)::int AS count
+        FROM alert_analyses
+        WHERE created_at >= now() - interval '24 hours'
+      `),
     ]);
 
     const countRows = asRows<CountRow>(countResult);
@@ -91,12 +102,14 @@ export async function GET(request: Request): Promise<Response> {
       completed: countRows.find((r) => r.name === name && r.state === "completed")?.count ?? 0,
       failed: countRows.find((r) => r.name === name && r.state === "failed")?.count ?? 0,
       running: countRows.find((r) => r.name === name && r.state === "active")?.count ?? 0,
-      pending: countRows.filter((r) => r.name === name && ["created", "retry", "retrying"].includes(r.state)).reduce((n, r) => n + r.count, 0),
+      pending: countRows.filter((r) => r.name === name && ["created", "retry"].includes(r.state)).reduce((n, r) => n + r.count, 0),
     }]));
-    const completed = Object.values(perQueue).reduce((n, q) => n + q.completed, 0);
+
+    // Explicitly use alert_analyses count for "Analyzed Today" rather than sum of all completed queue jobs
+    const analyzedCompleted = asRows<{ count: number }>(analyzedCountResult)[0]?.count ?? 0;
     const failed = Object.values(perQueue).reduce((n, q) => n + q.failed, 0);
     const running = Object.values(perQueue).reduce((n, q) => n + q.running, 0);
-    const processed = completed + failed;
+    const processed = analyzedCompleted + failed;
 
     const recentJobs = asRows<JobRow>(jobResult).map((job) => ({
       id: job.id,
@@ -112,7 +125,7 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({
       data: {
         queues: result,
-        metrics: { pendingAlerts, perQueue, totals: { completed, failed, running, processed, successRate: processed ? Math.round((completed / processed) * 100) : 100 } },
+        metrics: { pendingAlerts, perQueue, totals: { completed: analyzedCompleted, failed, running, processed, successRate: processed ? Math.round((analyzedCompleted / processed) * 100) : 100 } },
         recentJobs,
         series: asRows<SeriesRow>(seriesResult).map((row) => ({ hour: row.hour, queue: row.name, total: row.total })),
         running: asRows<Record<string, unknown>>(progressResult),

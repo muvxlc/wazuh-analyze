@@ -85,7 +85,7 @@ export default function ChatPage() {
             id="chat-connection"
             value={connectionId ?? ""}
             onChange={(event) => setConnectionId(event.target.value || null)}
-            className="min-w-64"
+            className="w-full sm:w-auto sm:min-w-[12rem]"
             disabled={connections.length === 0 || loading}
           >
             {connections.length === 0 && <option value="">No AI connection</option>}

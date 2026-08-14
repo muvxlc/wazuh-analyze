@@ -10,7 +10,7 @@ export const aiConnections = pgTable("ai_connections", {
   baseUrl: text("base_url").notNull(),
   model: text("model").notNull(),
   apiKey: jsonb("api_key"),
-  timeoutMs: integer("timeout_ms").notNull().default(30_000),
+  timeoutMs: integer("timeout_ms").notNull().default(120_000),
   isDefault: boolean("is_default").notNull().default(false),
   createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),

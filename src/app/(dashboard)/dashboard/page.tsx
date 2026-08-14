@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { SEVERITY_COLORS, severityFromLevel, severityLabel } from "../../../server/alerts/severity-mapper";
 
 interface Summary {
-  health: { status: string; stale: boolean; upstreamErrorCode: string | null; connectionStatus: "connected" | "disconnected"; reason: string; };
+  health: { status: string; stale: boolean; upstreamErrorCode: string | null; connectionStatus: "connected" | "disconnected"; reason: string; indexerStatus: "connected" | "disconnected"; indexerReason: string; };
   agentStatus: Record<string, number>;
   alertSeverity: Record<string, number>;
   workflows: Record<string, number>;
@@ -38,10 +38,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <p className={`wazuh-status wazuh-status-${summary.health.connectionStatus}`} aria-label={`Wazuh ${summary.health.connectionStatus}: ${summary.health.reason}`}>
+      <div className="flex flex-wrap justify-end gap-3">
+        <p className={`wazuh-status wazuh-status-${summary.health.connectionStatus}`} aria-label={`Wazuh API ${summary.health.connectionStatus}: ${summary.health.reason}`}>
           <span className="wazuh-status-dot" aria-hidden="true" />
-          <span>Wazuh: <strong>{summary.health.connectionStatus}</strong></span>
+          <span>API: <strong>{summary.health.connectionStatus}</strong></span>
+        </p>
+        <p className={`wazuh-status wazuh-status-${summary.health.indexerStatus}`} aria-label={`Wazuh Indexer ${summary.health.indexerStatus}: ${summary.health.indexerReason}`}>
+          <span className="wazuh-status-dot" aria-hidden="true" />
+          <span>Indexer: <strong>{summary.health.indexerStatus}</strong></span>
         </p>
       </div>
       <div className="dashboard-grid">

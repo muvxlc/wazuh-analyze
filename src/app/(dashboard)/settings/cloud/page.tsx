@@ -9,6 +9,9 @@ interface CloudSettings {
   wazuhAllowInsecureTls: boolean;
   wazuhPasswordSet: boolean;
   wazuhCaPath: string | null;
+  wazuhIndexerUrl: string;
+  wazuhIndexerUsernameSet: boolean;
+  wazuhIndexerPasswordSet: boolean;
 }
 
 interface State {
@@ -18,6 +21,8 @@ interface State {
   saved: boolean;
   username: string;
   password: string;
+  indexerUsername: string;
+  indexerPassword: string;
 }
 
 export default function SettingsCloudPage() {
@@ -29,6 +34,8 @@ export default function SettingsCloudPage() {
     saved: false,
     username: "",
     password: "",
+    indexerUsername: "",
+    indexerPassword: "",
   });
 
   useEffect(() => {
@@ -45,6 +52,8 @@ export default function SettingsCloudPage() {
           saved: false,
           username: "",
           password: "",
+          indexerUsername: "",
+          indexerPassword: "",
         })),
       )
       .catch(() => setState((s) => ({ ...s, error: t("fetch-error") })));
@@ -72,6 +81,9 @@ export default function SettingsCloudPage() {
       };
       if (state.username) body.wazuhUsername = state.username;
       if (state.password) body.wazuhPassword = state.password;
+      body.wazuhIndexerUrl = state.data.wazuhIndexerUrl;
+      if (state.indexerUsername) body.wazuhIndexerUsername = state.indexerUsername;
+      if (state.indexerPassword) body.wazuhIndexerPassword = state.indexerPassword;
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -86,6 +98,8 @@ export default function SettingsCloudPage() {
         data: b.data,
         username: "",
         password: "",
+        indexerUsername: "",
+        indexerPassword: "",
       }));
     } catch (err) {
       setState((s) => ({
@@ -212,6 +226,56 @@ export default function SettingsCloudPage() {
             placeholder={t("cloud-wazuh-ca-path-placeholder")}
           />
         </div>
+        <fieldset className="space-y-4 border-t border-[var(--color-border)] pt-4">
+          <legend className="text-sm font-semibold">{t("cloud-wazuh-indexer")}</legend>
+          <div className="form-field">
+            <label htmlFor="wazuhIndexerUrl" className="text-sm text-[var(--color-ink-muted)]">
+              {t("cloud-wazuh-indexer-url")}
+            </label>
+            <input
+              id="wazuhIndexerUrl"
+              type="url"
+              className="auth-input"
+              value={state.data.wazuhIndexerUrl}
+              onChange={(e) => handleChange("wazuhIndexerUrl", e.target.value)}
+              placeholder={t("cloud-indexer-url-placeholder")}
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="wazuhIndexerUsername" className="text-sm text-[var(--color-ink-muted)]">
+              {t("cloud-wazuh-indexer-username")}
+            </label>
+            <input
+              id="wazuhIndexerUsername"
+              type="text"
+              autoComplete="off"
+              className="auth-input"
+              value={state.indexerUsername}
+              onChange={(e) => setState((s) => ({ ...s, indexerUsername: e.target.value }))}
+              placeholder={t("cloud-indexer-username-placeholder")}
+            />
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+              {state.data.wazuhIndexerUsernameSet ? t("cloud-indexer-username-set") : t("cloud-indexer-username-not-set")}
+            </p>
+          </div>
+          <div className="form-field">
+            <label htmlFor="wazuhIndexerPassword" className="text-sm text-[var(--color-ink-muted)]">
+              {t("cloud-wazuh-indexer-password")}
+            </label>
+            <input
+              id="wazuhIndexerPassword"
+              type="password"
+              autoComplete="off"
+              className="auth-input"
+              value={state.indexerPassword}
+              onChange={(e) => setState((s) => ({ ...s, indexerPassword: e.target.value }))}
+              placeholder={t("cloud-indexer-password-placeholder")}
+            />
+            <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+              {state.data.wazuhIndexerPasswordSet ? t("cloud-indexer-password-set") : t("cloud-indexer-password-not-set")}
+            </p>
+          </div>
+        </fieldset>
         <div className="flex items-center gap-2">
           <input
             id="wazuhAllowInsecureTls"

@@ -50,6 +50,7 @@ export interface TiConfigSlice {
   providers: string[];
   abuseipdbKey: string | null;
   otxKey: string | null;
+  greynoiseKey: string | null;
 }
 
 /**
@@ -67,6 +68,10 @@ export async function buildTiProviders(config: TiConfigSlice): Promise<TiProvide
     const { createOtxProvider } = await import("./otx");
     providers.push(createOtxProvider({ apiKey: config.otxKey ?? undefined }));
   }
+  if (names.has("greynoise")) {
+    const { createGreyNoiseProvider } = await import("./greynoise");
+    providers.push(createGreyNoiseProvider({ apiKey: config.greynoiseKey ?? undefined }));
+  }
   return providers;
 }
 
@@ -74,6 +79,8 @@ export async function buildTiProviders(config: TiConfigSlice): Promise<TiProvide
 export interface TiCacheStore {
   get(indicator: string, type: IocType): Promise<TiVerdict | null>;
   set(verdict: TiVerdict): Promise<void>;
+  /** Batch upsert — bulk writes are O(1) vs N+1 for setMany. */
+  setMany(verdicts: TiVerdict[]): Promise<void>;
 }
 
 export class InMemoryTiCache implements TiCacheStore {
@@ -85,6 +92,12 @@ export class InMemoryTiCache implements TiCacheStore {
 
   async set(verdict: TiVerdict): Promise<void> {
     this.map.set(`${verdict.indicator}:${verdict.type}`, verdict);
+  }
+
+  async setMany(verdicts: TiVerdict[]): Promise<void> {
+    for (const v of verdicts) {
+      await this.set(v);
+    }
   }
 
   clear(): void {
@@ -140,19 +153,19 @@ export async function aggregateLookup(
 const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 
 /**
- * Cached IP lookup: checks the store first (local, unlimited), else fans out
- * to providers and caches the merged verdict. ponytail: IPv6 + hash/domain.
+ * Cached lookup for any indicator type: checks the store first, else fans out
+ * to providers and caches the merged verdict.
  */
-export async function lookupIp(
-  ip: string,
+export async function lookupIoc(
+  indicator: string,
+  type: IocType,
   providers: TiProvider[],
   options: { cache?: TiCacheStore; fetchFn?: typeof fetch } = {},
 ): Promise<TiVerdict | null> {
-  if (!IPV4_RE.test(ip)) return null;
-  const ctx: TiLookupContext = { indicator: ip, type: "ip" };
+  const ctx: TiLookupContext = { indicator, type };
 
   if (options.cache) {
-    const hit = await options.cache.get(ip, "ip");
+    const hit = await options.cache.get(indicator, type);
     if (hit) return hit;
   }
 
@@ -161,4 +174,18 @@ export async function lookupIp(
     await options.cache.set(verdict);
   }
   return verdict;
+}
+
+/**
+ * Cached IPv4 lookup (legacy entry-point used by enrichment). Short-circuits
+ * on invalid IPv4 to avoid unnecessary provider calls. ponytail: migrate
+ * enrichment to lookupIoc when IPv6 support is added.
+ */
+export async function lookupIp(
+  ip: string,
+  providers: TiProvider[],
+  options: { cache?: TiCacheStore; fetchFn?: typeof fetch } = {},
+): Promise<TiVerdict | null> {
+  if (!IPV4_RE.test(ip)) return null;
+  return lookupIoc(ip, "ip", providers, options);
 }

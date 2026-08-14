@@ -24,6 +24,16 @@ describe("OpenAI-compatible chat provider", () => {
     });
   });
 
+  it("joins OpenAI content-part arrays", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: [{ type: "text", text: "hello " }, { type: "text", text: "world" }] } }] }), { status: 200 }),
+    );
+    const provider = createChatProvider({
+      provider: "openai_compatible", baseUrl: "http://localhost:1234/v1", model: "m", apiKey: "", timeoutMs: 10_000,
+    }, fetchMock as unknown as typeof fetch);
+    await expect(provider.chat("system", "user")).resolves.toBe("hello world");
+  });
+
   it("uses LM Studio native endpoint for local connections", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ output: [{ type: "message", content: "pong" }] }), { status: 200 }),

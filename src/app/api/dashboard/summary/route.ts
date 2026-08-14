@@ -15,7 +15,10 @@ export async function GET(request: Request): Promise<Response> {
     const token = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1] ?? null;
     const user = await authenticateRequest(db, token);
     const effective = await resolveEffectiveConfig(db, config);
-    const data = await getDashboardSummary(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, { wazuh: createWazuhClient(effective.wazuh) });
+    const data = await getDashboardSummary(db, { userId: user.id, role: user.role, permissions: new Set(user.permissions) }, {
+      wazuh: createWazuhClient(effective.wazuh),
+      wazuhConfig: effective.wazuh,
+    });
     return Response.json({ data }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return toErrorResponse(error, requestId);
