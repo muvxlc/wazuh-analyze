@@ -87,7 +87,7 @@ function isUniqueViolation(error: unknown): boolean {
 
 const MAX_INDEXER_BATCH = 50;
 
-function eventToNormalized(event: RawEventRecord): import("../alerts/types").NormalizedAlertInput {
+export function eventToNormalized(event: RawEventRecord): import("../alerts/types").NormalizedAlertInput {
   const wazuhTimestamp = event.wazuhTimestamp
     ? new Date(event.wazuhTimestamp)
     : new Date();

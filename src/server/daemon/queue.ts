@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import type { Job } from "pg-boss";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and, lt } from "drizzle-orm";
 
 type JobBatch<Data> = Job<Data>[];
 import { AppConfig, loadConfig } from "../config";
@@ -28,6 +28,8 @@ import { setQueuePhase } from "./progress";
 import { refreshAbuseIpDbBlacklist } from "../ti/abuseipdb";
 import { DbTiCache } from "../ti/store";
 import { checkSourceFreshness, FRESHNESS_QUEUE } from "./freshness";
+import { retrySingleDeadLetter } from "../ingestion/dead-letter-retry";
+import { listDeadLetters } from "../ingestion/dead-letter";
 
 export const QUEUE_WEEKLY_REPORT = "weekly-soc-report";
 
@@ -37,6 +39,7 @@ export const QUEUE_EXECUTE_ACTION = "execute-action";
 export const QUEUE_SYNC_ABUSEIPDB = "sync-abuseipdb";
 export const QUEUE_ANALYZE_VULNERABILITY = "analyze-vulnerability";
 export const QUEUE_CHECK_SOURCE_FRESHNESS = "check-source-freshness";
+export const QUEUE_RETRY_DEAD_LETTERS = "retry-dead-letters";
 
 export const SYSTEM_ACTOR: ActorContext = {
   userId: null,
@@ -75,6 +78,7 @@ async function registerQueuesInternal(
   await pgBoss.createQueue(QUEUE_WEEKLY_REPORT).catch(() => {});
   await pgBoss.createQueue(QUEUE_SYNC_ABUSEIPDB).catch(() => {});
   await pgBoss.createQueue(QUEUE_CHECK_SOURCE_FRESHNESS).catch(() => {});
+  await pgBoss.createQueue(QUEUE_RETRY_DEAD_LETTERS).catch(() => {});
 
   // ponytail: Local AI models easily run out of context/memory with parallel queries. Restrict analysis queue to process 1 job at a time.
   await pgBoss.work(QUEUE_ANALYZE_ALERT, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ alertId: string; connectionId?: string; enrich?: boolean; force?: boolean }>) => {
@@ -303,6 +307,41 @@ async function registerQueuesInternal(
       const detail = err instanceof Error ? err.message : String(err);
       console.error("[Queue:check-source-freshness] Check failed:", detail, err);
       await setQueuePhase(bg.db, QUEUE_CHECK_SOURCE_FRESHNESS, "source-coverage", "failed", { jobId, detail }).catch(() => {});
+    }
+  });
+
+  // Periodic DLQ retry: sweep a bounded batch of 'open' dead letters through
+  // retrySingleDeadLetter. Atomic claim means concurrent runs can't double-process.
+  await pgBoss.work(QUEUE_RETRY_DEAD_LETTERS, async (jobs: JobBatch<Record<string, unknown>>) => {
+    const jobId = jobs[0]?.id;
+    console.log("[Queue:retry-dead-letters] Sweeping open dead letters");
+    try {
+      // Release claims stranded by a crash between claim and release (claim
+      // marks retrying; a crash leaves the row retrying forever). Rows claimed
+      // >10 min ago are safe to reset — a live retry finishes well under that.
+      await bg.db
+        .update(schema.deadLetters)
+        .set({ status: "open" })
+        .where(and(
+          eq(schema.deadLetters.status, "retrying"),
+          lt(schema.deadLetters.retriedAt, new Date(Date.now() - 10 * 60 * 1000)),
+        ));
+
+      const page = await listDeadLetters({ db: bg.db, status: "open", limit: 20 });
+      if (page.items.length > 0) {
+        let recovered = 0, failed = 0;
+        for (const item of page.items) {
+          const result = await retrySingleDeadLetter(bg.db, item.id);
+          if (!result) continue; // already claimed by concurrent run
+          if (result.status === "failed") failed++; else recovered++;
+        }
+        console.log(`[Queue:retry-dead-letters] ${recovered} recovered, ${failed} failed`);
+        await setQueuePhase(bg.db, QUEUE_RETRY_DEAD_LETTERS, "dead-letters", "completed", { jobId, detail: `${recovered} recovered, ${failed} failed` });
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[Queue:retry-dead-letters] Sweep failed:", detail, err);
+      await setQueuePhase(bg.db, QUEUE_RETRY_DEAD_LETTERS, "dead-letters", "failed", { jobId, detail }).catch(() => {});
     }
   });
 
