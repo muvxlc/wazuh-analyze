@@ -14,7 +14,7 @@ vi.mock("../../../server/db/client", () => ({
 }));
 vi.mock("../../../server/auth/authenticate", () => ({
   authenticateRequest: vi.fn().mockResolvedValue({
-    id: "u1", role: "admin", permissions: new Set(["vulnerabilities.read"]),
+    id: "u1", role: "admin", permissions: new Set(["vulnerabilities.read", "vulnerabilities.analyze"]),
     email: "t@x", displayName: "T", locale: "en", sessionId: "s1",
   }),
 }));
@@ -97,6 +97,7 @@ const withoutIndexer: AppConfig = {
 
 const v = (cve: string, score?: number): VulnRecord => ({
   cve,
+  sourceId: `src-${cve}`,
   severity: "High",
   status: "VALID",
   cvss_score: score,
@@ -129,7 +130,7 @@ describe("GET /api/vulnerabilities deep coverage", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.data.indexerError).toBe(true);
-    expect(body.data.vulnerabilities).toEqual([{ ...v("ok", 4), agentId: "002", agentName: "a2" }]);
+    expect(body.data.vulnerabilities).toEqual([{ ...v("ok", 4), agentId: "002", agentName: "a2", canAnalyze: true }]);
   });
 
   it("reports indexer as unconfigured when effective config omits it", async () => {
@@ -149,10 +150,20 @@ describe("GET /api/vulnerabilities deep coverage", () => {
   it("attaches agent ID and name to every vulnerability", async () => {
     vi.mocked(fetchAgentVulnerabilities).mockResolvedValueOnce([v("CVE-1", 6), v("CVE-2", 2)]);
     const body = await (await GET(request())).json();
-    expect(body.data.vulnerabilities).toEqual([
-      { ...v("CVE-1", 6), agentId: "001", agentName: "a1" },
-      { ...v("CVE-2", 2), agentId: "001", agentName: "a1" },
-    ]);
+    const rows = body.data.vulnerabilities;
+    expect(rows[0].cve).toBe("CVE-1");
+    expect(rows[0].agentId).toBe("001");
+    expect(rows[0].agentName).toBe("a1");
+    expect(rows[1].cve).toBe("CVE-2");
+    expect(rows[1].agentId).toBe("001");
+    expect(rows[1].agentName).toBe("a1");
+  });
+
+  it("includes sourceId and canAnalyze on every vulnerability row", async () => {
+    vi.mocked(fetchAgentVulnerabilities).mockResolvedValueOnce([v("CVE-1", 6)]);
+    const body = await (await GET(request())).json();
+    expect(body.data.vulnerabilities[0].sourceId).toBe("src-CVE-1");
+    expect(body.data.vulnerabilities[0].canAnalyze).toBe(true);
   });
 
   it("returns empty vulnerabilities when no indexer is configured", async () => {

@@ -17,6 +17,8 @@ const expectedIndexes = [
   "alerts_rule_idx",
   "alerts_status_idx",
   "alerts_wazuh_event_id_unique",
+  "vulnerability_analyses_agent_source_created_idx",
+  "vulnerability_analyses_created_idx",
   "sessions_token_hash_unique",
   "users_normalized_email_unique",
 ];
@@ -54,7 +56,13 @@ describe("PostgreSQL schema", () => {
       expect.arrayContaining([...applicationTables]),
     );
     expect(enums.rows.map(({ typname }) => typname)).toEqual(
-      expect.arrayContaining(["alert_status", "locale", "override_effect", "role"]),
+      expect.arrayContaining([
+        "alert_status",
+        "locale",
+        "notification_event_type",
+        "override_effect",
+        "role",
+      ]),
     );
   });
 

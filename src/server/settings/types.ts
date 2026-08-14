@@ -8,6 +8,7 @@ export type SystemSettingKey =
   | "maintenanceBatchSize"
   | "appUrl"
   | "socAutoAnalyze"
+  | "socAutoAnalyzeVulnerabilities"
   | "socAutoAnalyzeMinLevel"
   | "socAutoCreateIncident"
   | "socAutoIncidentMinConfidence"

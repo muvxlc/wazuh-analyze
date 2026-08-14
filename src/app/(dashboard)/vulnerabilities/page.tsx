@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ShieldAlert, AlertTriangle, AlertCircle, Info, RefreshCw, Settings } from "lucide-react";
+import { ShieldAlert, AlertTriangle, AlertCircle, Info, RefreshCw, Settings, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { VulnerabilityAnalysisPanel } from "../../../components/vulnerabilities/vulnerability-analysis-panel";
 
 interface VulnItem {
   cve: string;
@@ -15,6 +16,8 @@ interface VulnItem {
   published?: string;
   agentId: string;
   agentName: string;
+  sourceId?: string;
+  canAnalyze?: boolean;
 }
 
 interface AgentInfo {
@@ -108,6 +111,7 @@ export default function VulnerabilitiesPage() {
   const [loading, setLoading] = useState(true);
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [selectedVuln, setSelectedVuln] = useState<{ agentId: string; sourceId: string; cve: string; canAnalyze: boolean } | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -269,10 +273,16 @@ export default function VulnerabilitiesPage() {
                     const Icon = getSeverityIcon(v.severity);
                     const colorClass = getSeverityColorClass(v.severity);
                     const sevKey = normSeverity(v.severity);
+                    const key = v.sourceId ?? `${v.agentId}-${v.cve}`;
+                    const isSelected = selectedVuln?.sourceId === key && selectedVuln?.agentId === v.agentId;
                     return (
                       <tr
-                        key={`${v.agentId}-${v.cve}`}
-                        className="group hover:bg-[var(--color-canvas-soft)] transition-colors"
+                        key={key}
+                        onClick={() =>
+                          setSelectedVuln(isSelected ? null : { agentId: v.agentId, sourceId: key, cve: v.cve, canAnalyze: Boolean(v.canAnalyze) })
+                        }
+                        className={`group hover:bg-[var(--color-canvas-soft)] transition-colors cursor-pointer ${isSelected ? "bg-[var(--color-accent-soft)]" : ""}`}
+                        style={{ cursor: "pointer" }}
                       >
                         <td className="td py-3">
                           <span
@@ -318,6 +328,11 @@ export default function VulnerabilitiesPage() {
                             {v.status}
                           </span>
                         </td>
+                        <td className="td py-3 w-8">
+                          {isSelected ? (
+                            <ChevronRight size={16} className="text-[var(--color-accent)]" aria-hidden="true" />
+                          ) : null}
+                        </td>
                       </tr>
                     );
                   })}
@@ -332,6 +347,15 @@ export default function VulnerabilitiesPage() {
             </>
           )}
         </div>
+      )}
+
+      {selectedVuln && (
+        <VulnerabilityAnalysisPanel
+          agentId={selectedVuln.agentId}
+          vulnerabilityId={selectedVuln.sourceId}
+          canAnalyze={selectedVuln.canAnalyze}
+          onDeselect={() => setSelectedVuln(null)}
+        />
       )}
     </section>
   );

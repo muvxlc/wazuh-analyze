@@ -13,3 +13,4 @@ export * from "./notifications";
 export * from "./queue-progress";
 export * from "./users";
 export * from "./wazuh";
+export * from "./vulnerability-analyses";

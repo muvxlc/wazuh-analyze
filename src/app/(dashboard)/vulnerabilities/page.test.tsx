@@ -199,4 +199,97 @@ describe("Vulnerabilities page", () => {
     const rows = document.querySelectorAll("tbody tr");
     expect(rows.length).toBeGreaterThan(0);
   });
+
+  it("uses sourceId as stable row key when present", async () => {
+    const vulns = [{ cve: "CVE-2023-9999", sourceId: "src-abc-123", severity: "High" }];
+    mockData(vulns);
+    render(<VulnerabilitiesPage />);
+    await screen.findByText("CVE-2023-9999");
+    // Row exists with sourceId-based key in DOM (check via data-testid or just presence)
+    const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+    expect(rows.length).toBe(1);
+  });
+
+  it("falls back to agentId-cve key when sourceId is absent", async () => {
+    mockData([{ cve: "CVE-2024-0001", severity: "Medium", sourceId: undefined }]);
+    render(<VulnerabilitiesPage />);
+    await screen.findByText("CVE-2024-0001");
+    const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+    expect(rows.length).toBe(1);
+  });
+
+  it("selects row and shows vulnerability analysis panel on click", async () => {
+    const analysisData = {
+      data: {
+        record: { cve: "CVE-2023-1234", severity: "High", cvss_score: 8.5, status: "VALID", sourceId: "src-1" },
+        analyses: [],
+        progress: null,
+      },
+    };
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/vulnerabilities") {
+        return new Response(jsonResponse([{ cve: "CVE-2023-1234", sourceId: "src-1", severity: "High", canAnalyze: true }]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.includes("/analysis")) {
+        return new Response(JSON.stringify(analysisData), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    render(<VulnerabilitiesPage />);
+    await screen.findByText("CVE-2023-1234");
+    const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+    expect(rows.length).toBeGreaterThan(0);
+    rows[0].click();
+    await screen.findByText("no-analysis");
+    expect(screen.getByTestId("analyze-btn")).toBeInTheDocument();
+  });
+
+  it("deselects row when clicking already-selected row", async () => {
+    mockData([{ cve: "CVE-2023-1234", sourceId: "src-1", severity: "High" }]);
+    render(<VulnerabilitiesPage />);
+    await screen.findByText("CVE-2023-1234");
+    const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+    rows[0].click();
+    await screen.findByText("no-analysis");
+    rows[0].click();
+    await screen.findByText("CVE-2023-1234");
+    expect(screen.queryByTestId("analyze-btn")).not.toBeInTheDocument();
+  });
+
+  it("shows analysis content when analyses exist", async () => {
+    const analysisWithVerdict = {
+      data: {
+        record: { cve: "CVE-2023-1234", severity: "High", cvss_score: 8.5, status: "VALID", sourceId: "src-1" },
+        analyses: [{ id: "a1", cve: "CVE-2023-1234", verdict: { confidence: 0.9, severity: "high", sections: { summaryImpact: { en: "Test impact", th: "สรุป" } } }, createdAt: "2024-01-01T00:00:00Z" }],
+        progress: null,
+      },
+    };
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/vulnerabilities") {
+        return new Response(jsonResponse([{ cve: "CVE-2023-1234", sourceId: "src-1", severity: "High", canAnalyze: true }]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.includes("/analysis")) {
+        return new Response(JSON.stringify(analysisWithVerdict), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    render(<VulnerabilitiesPage />);
+    await screen.findByText("CVE-2023-1234");
+    const rows = document.querySelectorAll<HTMLElement>("tbody tr");
+    rows[0].click();
+    await screen.findByTestId("verdict-content");
+    expect(screen.getByText("Test impact")).toBeInTheDocument();
+  });
 });

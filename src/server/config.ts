@@ -19,6 +19,10 @@ const environmentSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
+    SOC_AUTO_ANALYZE_VULNERABILITIES: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(7),
     SOC_AUTO_CREATE_INCIDENT: z
       .enum(["true", "false"])
@@ -89,6 +93,8 @@ export interface AppConfig {
   alertRetentionDays: number;
   maintenanceBatchSize: number;
   socAutoAnalyze: boolean;
+  /** Optional for compatibility with pre-vulnerability-analysis config fixtures. */
+  socAutoAnalyzeVulnerabilities?: boolean;
   socAutoAnalyzeMinLevel: number;
   socAutoCreateIncident: boolean;
   socAutoIncidentMinConfidence: number;
@@ -144,6 +150,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     alertRetentionDays: environment.ALERT_RETENTION_DAYS,
     maintenanceBatchSize: environment.MAINTENANCE_BATCH_SIZE,
     socAutoAnalyze: environment.SOC_AUTO_ANALYZE,
+    socAutoAnalyzeVulnerabilities: environment.SOC_AUTO_ANALYZE_VULNERABILITIES,
     socAutoAnalyzeMinLevel: environment.SOC_AUTO_ANALYZE_MIN_LEVEL,
     socAutoCreateIncident: environment.SOC_AUTO_CREATE_INCIDENT,
     socAutoIncidentMinConfidence: environment.SOC_AUTO_INCIDENT_MIN_CONFIDENCE,

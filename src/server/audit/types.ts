@@ -29,7 +29,8 @@ export type AuditAction =
   | "alert.fp_suppress"
   | "fp_signature.create"
   | "fp_signature.delete"
-  | "fp_signature.renew";
+  | "fp_signature.renew"
+  | "vulnerability.analyze";
 
 export interface AuditEventInput {
   actorUserId: string | null;

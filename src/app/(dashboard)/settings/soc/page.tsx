@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 interface SocSettingsData {
   socAutoAnalyze: boolean;
+  socAutoAnalyzeVulnerabilities: boolean;
   socAutoAnalyzeMinLevel: number;
   socAutoCreateIncident: boolean;
   socAutoIncidentMinConfidence: number;
@@ -67,6 +68,7 @@ export default function SettingsSocPage() {
     try {
       const payload: Record<string, unknown> = {
         socAutoAnalyze: state.data.socAutoAnalyze,
+        socAutoAnalyzeVulnerabilities: state.data.socAutoAnalyzeVulnerabilities,
         socAutoAnalyzeMinLevel: state.data.socAutoAnalyzeMinLevel,
         socAutoCreateIncident: state.data.socAutoCreateIncident,
         socAutoIncidentMinConfidence: state.data.socAutoIncidentMinConfidence,
@@ -154,6 +156,15 @@ export default function SettingsSocPage() {
             onChange={(e) => handleChange("socAutoAnalyze", e.target.checked)}
           />
           {t("soc-auto-analyze")}
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.data.socAutoAnalyzeVulnerabilities}
+            onChange={(e) => handleChange("socAutoAnalyzeVulnerabilities", e.target.checked)}
+          />
+          {t("soc-auto-analyze-vulnerabilities")}
         </label>
 
         <div className="form-field">

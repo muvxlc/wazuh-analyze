@@ -33,6 +33,7 @@ describe("loadConfig", () => {
       alertRetentionDays: 90,
       maintenanceBatchSize: 1_000,
       socAutoAnalyze: false,
+      socAutoAnalyzeVulnerabilities: false,
       socAutoAnalyzeMinLevel: 7,
       wazuh: {
         username: "wazuh-user",
@@ -79,6 +80,14 @@ describe("loadConfig", () => {
     );
     expect(config.socAutoAnalyze).toBe(true);
     expect(config.socAutoAnalyzeMinLevel).toBe(12);
+  });
+
+  it("loads vulnerability auto-analysis config when enabled", () => {
+    const config = loadConfig(
+      validEnv({ SOC_AUTO_ANALYZE_VULNERABILITIES: "true" }),
+    );
+
+    expect(config.socAutoAnalyzeVulnerabilities).toBe(true);
   });
 
   it("rejects insecure Wazuh TLS in production", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WazuhConfig } from "./types";
-import { fetchAgentVulnerabilities, pingIndexer } from "./indexer";
+import { fetchAgentVulnerabilities, fetchVulnerabilityById, pingIndexer } from "./indexer";
 import { WazuhError } from "./errors";
 
 const mockFetch = (responses: Array<{ status: number; body: unknown } | { error: string }>) => {
@@ -259,5 +259,157 @@ describe("fetchAgentVulnerabilities", () => {
     // Should not throw — validates config is used without crashing
     const result = await fetchAgentVulnerabilities(config, "001", 20, fetch);
     expect(result).toEqual([]);
+  });
+
+  it("maps _id to sourceId and allowlisted flat fields", async () => {
+    const hit = {
+      ...flatHit,
+      _source: {
+        ...flatHit._source,
+        package_name: "openssl",
+        installed_version: "1.0.0",
+        fixed_version: "1.0.1",
+        os: "Ubuntu 24.04",
+        exposure: "internet-facing",
+        detection: "package inventory",
+        secret: "must not escape",
+      },
+    };
+    const fetch = mockFetch([{ status: 200, body: { hits: { hits: [hit] } } }]);
+    const [result] = await fetchAgentVulnerabilities(baseConfig, "001", 20, fetch);
+    expect(result).toMatchObject({
+      sourceId: "abc123",
+      package: "openssl",
+      installedVersion: "1.0.0",
+      fixedVersion: "1.0.1",
+      os: "Ubuntu 24.04",
+      exposure: "internet-facing",
+      detection: "package inventory",
+    });
+    expect(result).not.toHaveProperty("secret");
+  });
+
+  it("uses agent-scoped deterministic fallback when _id is malformed or absent", async () => {
+    const source = {
+      agent: { id: "001" },
+      cve: "CVE-2024-0001",
+      package_name: "openssl",
+      installed_version: "1.0.0",
+      severity: "high",
+      status: "valid",
+    };
+    const fetch = mockFetch([{
+      status: 200,
+      body: { hits: { hits: [
+        { _index: "vulns-a", _id: 42, _source: source },
+        { _index: "vulns-a", _source: source },
+      ] } },
+    }]);
+    const result = await fetchAgentVulnerabilities(baseConfig, "001", 20, fetch);
+    expect(result[0].sourceId).toMatch(/^fallback-001-/);
+    expect(result[1].sourceId).toBe(result[0].sourceId);
+    expect(result[0].sourceId).not.toBe("CVE-2024-0001");
+
+    const otherAgent = await fetchAgentVulnerabilities(baseConfig, "002", 20, mockFetch([{
+      status: 200,
+      body: { hits: { hits: [{ _index: "vulns-a", _source: source }] } },
+    }]));
+    expect(otherAgent[0].sourceId).not.toBe(result[0].sourceId);
+  });
+
+  it("maps nested package, versions, OS, exposure, and detection fields", async () => {
+    const hit = {
+      ...nestedHit,
+      _source: {
+        ...nestedHit._source,
+        vulnerability: {
+          ...nestedHit._source.vulnerability,
+          package: { name: "libssl", version: "3.0.0", fixed_version: "3.0.2" },
+          os: "Debian",
+          exposure: "localhost-only",
+          detection_method: "system scan",
+        },
+      },
+    };
+    const fetch = mockFetch([{ status: 200, body: { hits: { hits: [hit] } } }]);
+    const [result] = await fetchAgentVulnerabilities(baseConfig, "001", 20, fetch);
+    expect(result).toMatchObject({
+      sourceId: "abc124",
+      package: "libssl",
+      installedVersion: "3.0.0",
+      fixedVersion: "3.0.2",
+      os: "Debian",
+      exposure: "localhost-only",
+      detection: "system scan",
+    });
+  });
+
+  it("drops malformed fields and never returns raw source", async () => {
+    const fetch = mockFetch([{ status: 200, body: { hits: { hits: [{
+      _id: "safe-id",
+      _source: {
+        cve: ["bad"],
+        title: { injection: true },
+        severity: 99,
+        cvss_score: "9.9",
+        status: null,
+        package_name: ["bad"],
+        installed_version: { value: "bad" },
+        fixed_version: "  fixed  ",
+        nested: { attacker: "payload" },
+      },
+    }] } } }]);
+    const [result] = await fetchAgentVulnerabilities(baseConfig, "001", 20, fetch);
+    expect(result).toEqual({ sourceId: "safe-id", fixedVersion: "fixed", cve: "", severity: "", status: "" });
+    expect(result).not.toHaveProperty("nested");
+  });
+});
+
+describe("fetchVulnerabilityById", () => {
+  it("queries exact source ID, agent, and valid status", async () => {
+    let body: Record<string, any> | undefined;
+    const fetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      body = JSON.parse(init.body as string) as Record<string, any>;
+      return { ok: true, status: 200, json: async () => ({ hits: { hits: [flatHit] } }) };
+    });
+    const result = await fetchVulnerabilityById(baseConfig, "001", "abc123", fetch);
+    expect(result?.sourceId).toBe("abc123");
+    expect(body?.size).toBe(1);
+    expect(body?.query.bool.must).toEqual([
+      { nested: { path: "agent", query: { term: { "agent.id": "001" } } } },
+      { term: { _id: "abc123" } },
+      { term: { "vulnerability.status": "valid" } },
+    ]);
+  });
+
+  it("returns null for no hit, wrong agent, or invalid status", async () => {
+    const fetch = mockFetch([
+      { status: 200, body: { hits: { hits: [] } } },
+    ]);
+    await expect(fetchVulnerabilityById(baseConfig, "002", "abc123", fetch)).resolves.toBeNull();
+
+    const bodies: Record<string, any>[] = [];
+    const guardedFetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string));
+      return { ok: true, status: 200, json: async () => ({ hits: { hits: [] } }) };
+    });
+    await fetchVulnerabilityById(baseConfig, "001", "abc123", guardedFetch);
+    expect(bodies[0].query.bool.must).toContainEqual({ term: { "vulnerability.status": "valid" } });
+  });
+
+  it("falls back to flat agent query when nested detail query returns 400", async () => {
+    const fetch = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as { query: { bool: { must: unknown[] } } };
+      if (body.query.bool.must[0] && "nested" in (body.query.bool.must[0] as object)) {
+        return { ok: false, status: 400, json: async () => ({}) };
+      }
+      return { ok: true, status: 200, json: async () => ({ hits: { hits: [flatHit] } }) };
+    });
+    await expect(fetchVulnerabilityById(baseConfig, "001", "abc123", fetch)).resolves.toMatchObject({ sourceId: "abc123" });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const second = JSON.parse((fetch.mock.calls[1][1] as RequestInit).body as string) as { query: { bool: { must: unknown[] } } };
+    expect(second.query.bool.must[0]).toEqual({ term: { "agent.id": "001" } });
+    expect(second.query.bool.must.slice(1)).toContainEqual({ term: { _id: "abc123" } });
+    expect(second.query.bool.must).toContainEqual({ term: { "vulnerability.status": "valid" } });
   });
 });

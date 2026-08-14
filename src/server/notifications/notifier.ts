@@ -24,6 +24,10 @@ function truncate(text: string, max = 2000): string {
   return text.slice(0, max - 3) + "...";
 }
 
+export function truncateToPlatform(text: string, channel: "discord" | "telegram"): string {
+  return truncate(text, channel === "telegram" ? 4096 : 2000);
+}
+
 export class DiscordNotifier implements Notifier {
   constructor(private readonly webhookUrl: string) {}
 
@@ -59,7 +63,7 @@ export class TelegramNotifier implements Notifier {
   async send(message: RenderedMessage, fetchFn = fetch): Promise<NotificationResult> {
     if (!this.botToken || !this.chatId) return { success: false, error: "missing_telegram_credentials" };
 
-    const text = truncate(`${message.title}\n\n${message.body}`);
+    const text = truncate(`${message.title}\n\n${message.body}`, 4096);
     const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
     try {
       const res = await fetchFn(url, {

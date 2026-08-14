@@ -38,7 +38,18 @@ export async function GET(request: Request): Promise<Response> {
     const rows = results.flatMap((result) => result.vulnerabilities);
     rows.sort((a, b) => (b.cvss_score ?? 0) - (a.cvss_score ?? 0));
     return Response.json(
-      { data: { vulnerabilities: rows, agents: snapshot.agents, indexerConfigured: Boolean(effective.wazuh.indexer), indexerError: results.some((result) => result.error), stale: snapshot.stale } },
+      {
+        data: {
+          vulnerabilities: rows.map((v) => ({
+            ...v,
+            canAnalyze: user.permissions.has("vulnerabilities.analyze"),
+          })),
+          agents: snapshot.agents,
+          indexerConfigured: Boolean(effective.wazuh.indexer),
+          indexerError: results.some((result) => result.error),
+          stale: snapshot.stale,
+        },
+      },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {

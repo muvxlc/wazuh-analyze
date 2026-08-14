@@ -35,6 +35,7 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "maintenanceBatchSize",
   "appUrl",
   "socAutoAnalyze",
+  "socAutoAnalyzeVulnerabilities",
   "socAutoAnalyzeMinLevel",
   "socAutoCreateIncident",
   "socAutoIncidentMinConfidence",
@@ -108,6 +109,10 @@ export async function resolveEffectiveConfig(
   const retention = eff("alertRetentionDays", String(config.alertRetentionDays));
   const batch = eff("maintenanceBatchSize", String(config.maintenanceBatchSize));
   const socAuto = eff("socAutoAnalyze", String(config.socAutoAnalyze));
+  const socAutoVulnerabilities = eff(
+    "socAutoAnalyzeVulnerabilities",
+    String(config.socAutoAnalyzeVulnerabilities ?? false),
+  );
   const socMinLevel = eff("socAutoAnalyzeMinLevel", String(config.socAutoAnalyzeMinLevel));
   const socCreate = eff("socAutoCreateIncident", String(config.socAutoCreateIncident));
   const socMinConf = eff("socAutoIncidentMinConfidence", String(config.socAutoIncidentMinConfidence));
@@ -137,6 +142,10 @@ export async function resolveEffectiveConfig(
     alertRetentionDays: retention.value !== null ? Number(retention.value) : config.alertRetentionDays,
     maintenanceBatchSize: batch.value !== null ? Number(batch.value) : config.maintenanceBatchSize,
     socAutoAnalyze: socAuto.value !== null ? socAuto.value === "true" : config.socAutoAnalyze,
+    socAutoAnalyzeVulnerabilities:
+      socAutoVulnerabilities.value !== null
+        ? socAutoVulnerabilities.value === "true"
+        : (config.socAutoAnalyzeVulnerabilities ?? false),
     socAutoAnalyzeMinLevel:
       socMinLevel.value !== null ? Number(socMinLevel.value) : config.socAutoAnalyzeMinLevel,
     socAutoCreateIncident: socCreate.value !== null ? socCreate.value === "true" : config.socAutoCreateIncident,
@@ -188,6 +197,7 @@ export interface SettingsView {
   wazuhPasswordSet: boolean;
   wazuhCaPath: string | null;
   socAutoAnalyze: boolean;
+  socAutoAnalyzeVulnerabilities: boolean;
   socAutoAnalyzeMinLevel: number;
   socAutoCreateIncident: boolean;
   socAutoIncidentMinConfidence: number;
@@ -228,6 +238,7 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
     wazuhPasswordSet: effective.wazuh.password.length > 0,
     wazuhCaPath: effective.wazuh.caPath,
     socAutoAnalyze: effective.socAutoAnalyze,
+    socAutoAnalyzeVulnerabilities: effective.socAutoAnalyzeVulnerabilities ?? false,
     socAutoAnalyzeMinLevel: effective.socAutoAnalyzeMinLevel,
     socAutoCreateIncident: effective.socAutoCreateIncident,
     socAutoIncidentMinConfidence: effective.socAutoIncidentMinConfidence,
@@ -253,6 +264,7 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       alertRetentionDays: src("alertRetentionDays"),
       maintenanceBatchSize: src("maintenanceBatchSize"),
       socAutoAnalyze: src("socAutoAnalyze"),
+      socAutoAnalyzeVulnerabilities: src("socAutoAnalyzeVulnerabilities"),
       socAutoAnalyzeMinLevel: src("socAutoAnalyzeMinLevel"),
       socAutoCreateIncident: src("socAutoCreateIncident"),
       socAutoIncidentMinConfidence: src("socAutoIncidentMinConfidence"),

@@ -12,6 +12,7 @@ import { getPgBoss } from "../../../../../server/daemon/pg-boss";
 import { PERMISSIONS } from "../../../../../server/authorization/permissions";
 import {
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,
@@ -19,6 +20,7 @@ import {
 
 const QUEUE_NAMES = [
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,

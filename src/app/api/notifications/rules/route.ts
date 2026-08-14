@@ -11,7 +11,7 @@ import { toErrorResponse } from "../../../../server/http/error-response";
 import { notificationRules } from "../../../../server/db/schema/notifications";
 
 const createRuleSchema = z.object({
-  eventType: z.enum(["alert.high_severity", "incident.created", "incident.escalated", "incident.opened", "verdict.confident_real"]),
+  eventType: z.enum(["alert.high_severity", "incident.created", "incident.escalated", "incident.opened", "verdict.confident_real", "vulnerability.analysis_completed"]),
   severityThreshold: z.number().int().positive().max(100).nullable().optional(),
   channelId: z.string().uuid(),
   enabled: z.boolean().default(true),

@@ -8,6 +8,7 @@ import { SESSION_COOKIE } from "../../../server/auth/cookies";
 import { getPgBoss } from "../../../server/daemon/pg-boss";
 import {
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,
@@ -17,6 +18,7 @@ import { countPendingAlerts } from "../../../server/daemon/backfill";
 
 const QUEUE_NAMES = [
   QUEUE_ANALYZE_ALERT,
+  QUEUE_ANALYZE_VULNERABILITY,
   QUEUE_DISPATCH_NOTIFICATION,
   QUEUE_EXECUTE_ACTION,
   QUEUE_WEEKLY_REPORT,

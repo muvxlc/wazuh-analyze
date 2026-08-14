@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   agentsList: "agents.list",
   agentsManage: "agents.manage",
   vulnerabilitiesRead: "vulnerabilities.read",
+  vulnerabilitiesAnalyze: "vulnerabilities.analyze",
   postureRead: "posture.read",
   mitreRead: "mitre.read",
   complianceRead: "compliance.read",

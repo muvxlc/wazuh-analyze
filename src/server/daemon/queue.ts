@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import type { Job } from "pg-boss";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 
 type JobBatch<Data> = Job<Data>[];
 import { AppConfig, loadConfig } from "../config";
@@ -10,14 +10,17 @@ import * as schema from "../db/schema";
 import { ActorContext } from "../authorization/permissions";
 import { resolveEffectiveConfig } from "../settings/service";
 import { runAlertAnalysis } from "../ai/analyze-service";
+import { runVulnerabilityAnalysis } from "../ai/vulnerability-analyze-service";
 import { correlateAlert } from "../incidents/correlator";
 import { draftIncidentFromAlert } from "../incidents/ir-draft";
+import { draftIncidentFromVulnerabilityAnalysis } from "../incidents/vulnerability-draft";
 import { getAlertDetail } from "../alerts/query";
 import { dispatchNotification } from "../notifications/dispatcher";
+import type { NotificationEvent } from "../notifications/render";
+import { fetchVulnerabilityById, fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { writeAuditEvent } from "../audit/audit-service";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
-import { NotificationEvent } from "../notifications/render";
 import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
 import { executeAction } from "../actions/action-executor";
 import { runWeeklyReport } from "../reports/report-job";
@@ -31,11 +34,12 @@ export const QUEUE_ANALYZE_ALERT = "analyze-alert";
 export const QUEUE_DISPATCH_NOTIFICATION = "dispatch-notification";
 export const QUEUE_EXECUTE_ACTION = "execute-action";
 export const QUEUE_SYNC_ABUSEIPDB = "sync-abuseipdb";
+export const QUEUE_ANALYZE_VULNERABILITY = "analyze-vulnerability";
 
 export const SYSTEM_ACTOR: ActorContext = {
   userId: null,
   role: "admin",
-  permissions: new Set(["alerts.analyze", "alerts.details", "incidents.manage", "notifications.manage"]),
+  permissions: new Set(["alerts.analyze", "alerts.details", "incidents.manage", "notifications.manage", "vulnerabilities.analyze"]),
 };
 
 /**
@@ -63,6 +67,7 @@ async function registerQueuesInternal(
 
   // Ensure queues exist before workers attach, avoiding race conditions on fresh DBs.
   await pgBoss.createQueue(QUEUE_ANALYZE_ALERT).catch(() => {});
+  await pgBoss.createQueue(QUEUE_ANALYZE_VULNERABILITY).catch(() => {});
   await pgBoss.createQueue(QUEUE_DISPATCH_NOTIFICATION).catch(() => {});
   await pgBoss.createQueue(QUEUE_EXECUTE_ACTION).catch(() => {});
   await pgBoss.createQueue(QUEUE_WEEKLY_REPORT).catch(() => {});
@@ -141,6 +146,84 @@ async function registerQueuesInternal(
           .filter(Boolean)
           .join(": ");
         await setQueuePhase(bg.db, QUEUE_ANALYZE_ALERT, alertId, "failed", { jobId: job.id, detail });
+        throw err;
+      }
+    }
+  });
+
+  // ponytail: vulnerability analysis queue mirrors the alert queue pattern: singleton dedupe, retry/backoff, 1-concurrency.
+  await pgBoss.work(QUEUE_ANALYZE_VULNERABILITY, { localConcurrency: 1, batchSize: 1 }, async (jobs: JobBatch<{ agentId: string; sourceId: string; connectionId?: string; force?: boolean }>) => {
+    for (const job of jobs) {
+      const { agentId, sourceId, connectionId, force } = job.data;
+      console.log(`[Queue:vuln] ${agentId}/${sourceId} force=${force ?? false}`);
+      const metadata: RequestMetadata = {
+        requestId: randomUUID(),
+        ip: "127.0.0.1",
+        userAgent: "Wazuh SOC Queue",
+      };
+      try {
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "loading", { jobId: job.id });
+        const effConfig = await resolveEffectiveConfig(bg.db, config);
+        if (!effConfig.socAutoAnalyzeVulnerabilities) {
+          console.log(`[Queue:vuln] auto-analyze disabled for ${agentId}/${sourceId}; skipping`);
+          await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "completed", { jobId: job.id });
+          continue;
+        }
+        // Re-fetch from Indexer to ensure record still exists and severity is current.
+        const record = await fetchVulnerabilityById(effConfig.wazuh, agentId, sourceId);
+        if (!record) {
+          console.log(`[Queue:vuln] record gone for ${agentId}/${sourceId}; skipping`);
+          await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "completed", { jobId: job.id });
+          continue;
+        }
+        // Auto path gates to Wazuh High/Critical only.
+        const severityNormalized = (record.severity ?? "").toLowerCase();
+        if (severityNormalized !== "high" && severityNormalized !== "critical") {
+          console.log(`[Queue:vuln] severity=${record.severity} not in {high,critical}; skipping`);
+          await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "completed", { jobId: job.id });
+          continue;
+        }
+        const result = await runVulnerabilityAnalysis(
+          bg.db,
+          SYSTEM_ACTOR,
+          { agentId, sourceId, connectionId, force: force ?? false },
+          metadata,
+          { settingsEncryptionKey: effConfig.settingsEncryptionKey, wazuh: effConfig.wazuh },
+        );
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "completed", { jobId: job.id });
+        // T9 auto-incident draft — mirrors alert Auto-IR gate above.
+        // Corroboration for vulns = AI verdict severity agrees (high/critical)
+        // with the Wazuh High/Critical gate; no TI/frequency signal exists here.
+        const v = result.verdict;
+        const vulnCorroboration = effConfig.socAutoIncidentRequireCorroboration
+          ? v.severity === "high" || v.severity === "critical"
+          : true;
+        if (effConfig.socAutoCreateIncident && v.confidence >= effConfig.socAutoIncidentMinConfidence && vulnCorroboration) {
+          console.log(`[Queue:vuln] ${agentId}/${sourceId} passed Auto-IR gate (conf=${v.confidence}, sev=${v.severity}). Drafting incident.`);
+          try {
+            await draftIncidentFromVulnerabilityAnalysis(bg.db, SYSTEM_ACTOR, { agentId, sourceId }, { cve: result.cve });
+          } catch (err) {
+            console.error(`[Queue:vuln] auto-incident draft failed for ${agentId}/${sourceId}:`, err);
+          }
+        }
+        // Fire-and-forget notification enqueue.
+        enqueueNotification({
+          type: "vulnerability.analysis_completed",
+          targetId: sourceId,
+          agentId,
+          sourceId,
+          cve: result.cve,
+          severity: result.verdict.severity,
+          title: result.cve,
+          summary: result.verdict.sections?.summaryImpact?.en,
+          sections: result.verdict.sections as NonNullable<NotificationEvent["sections"]>,
+        }).catch((err) => console.error("[Queue:vuln] notification enqueue failed:", err));
+      } catch (err) {
+        const e = err as { message?: string; code?: string; details?: { reason?: string; validationIssue?: string } };
+        const detail = [e.code ?? (err instanceof Error ? err.message : String(err)), e.details?.reason, e.details?.validationIssue]
+          .filter(Boolean)
+          .join(": ");
+        await setQueuePhase(bg.db, QUEUE_ANALYZE_VULNERABILITY, sourceId, "failed", { jobId: job.id, detail });
         throw err;
       }
     }
@@ -258,5 +341,26 @@ export async function enqueueActionExecution(
     retryDelay: 10,
     retryBackoff: true,
     expireInSeconds: 60 * 5,
+  });
+}
+
+/** Enqueue vulnerability auto-analysis. Singleton per agent+source; manual reruns pass force=true. */
+export async function enqueueVulnerabilityAnalysis(
+  agentId: string,
+  sourceId: string,
+  options: { force?: boolean; connectionId?: string } = {},
+): Promise<void> {
+  const config = loadConfig(process.env);
+  const pgBoss = await getPgBoss(config);
+  await registerQueues(pgBoss, config);
+  await pgBoss.send(QUEUE_ANALYZE_VULNERABILITY, { agentId, sourceId, ...options, force: options.force ?? false }, {
+    ...(options.force ? {} : {
+      singletonKey: `analyze-vuln:${agentId}:${sourceId}`,
+      singletonSeconds: 60 * 30,
+    }),
+    retryLimit: 5,
+    retryDelay: 30,
+    retryBackoff: true,
+    expireInSeconds: 60 * 30,
   });
 }
