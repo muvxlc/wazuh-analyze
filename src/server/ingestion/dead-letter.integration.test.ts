@@ -10,6 +10,7 @@ import {
   listDeadLetters,
   retryDeadLetter,
 } from "./dead-letter";
+import { retrySingleDeadLetter } from "./dead-letter-retry";
 import { AppError } from "../errors";
 
 describe("dead-letter", () => {
@@ -239,6 +240,72 @@ describe("dead-letter", () => {
     it("returns null if row not found", async () => {
       const result = await retryDeadLetter({ db, id: "00000000-0000-0000-0000-000000000000" });
       expect(result).toBeNull();
+    });
+  });
+
+  describe("retrySingleDeadLetter (full retry path)", () => {
+    it("deletes the row when re-persist succeeds", async () => {
+      const insertResult = await insertDeadLetter({
+        db,
+        source: "wazuh_webhook",
+        text: "retry-success",
+        rawPayload: {
+          id: "retry-event-1",
+          agentId: "agent-1",
+          ruleId: "rule-1",
+          level: 7,
+          description: "retry test",
+          status: "new",
+        },
+        errorReason: "old-error",
+      });
+
+      const result = await retrySingleDeadLetter(db, insertResult.id);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe("retried" as const);
+
+      const [row] = await db
+        .select({ id: schema.deadLetters.id })
+        .from(schema.deadLetters)
+        .where(eq(schema.deadLetters.id, insertResult.id));
+      expect(row).toBeUndefined();
+    });
+
+    it("returns null when row already claimed", async () => {
+      const insertResult = await insertDeadLetter({
+        db,
+        source: "wazuh_webhook",
+        text: "retry-claimed",
+        rawPayload: { id: "1" },
+        errorReason: "old-error",
+      });
+      await retryDeadLetter({ db, id: insertResult.id });
+
+      const result = await retrySingleDeadLetter(db, insertResult.id);
+      expect(result).toBeNull();
+    });
+
+    it("releases row back to open when re-persist fails", async () => {
+      // Invalid wazuhTimestamp → eventToNormalized throws, simulating a
+      // permanent failure that releases the row back to open.
+      const insertResult = await insertDeadLetter({
+        db,
+        source: "wazuh_webhook",
+        text: "retry-fail",
+        rawPayload: { wazuhTimestamp: "not-a-date" },
+        errorReason: "old-error",
+      });
+
+      const result = await retrySingleDeadLetter(db, insertResult.id);
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe("failed" as const);
+
+      const [row] = await db
+        .select({ status: schema.deadLetters.status, lastError: schema.deadLetters.lastError })
+        .from(schema.deadLetters)
+        .where(eq(schema.deadLetters.id, insertResult.id));
+      expect(row?.status).toBe("open");
+      expect(row?.lastError).toBeTruthy();
     });
   });
 });

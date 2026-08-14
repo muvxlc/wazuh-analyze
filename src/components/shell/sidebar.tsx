@@ -41,6 +41,7 @@ const adminItems: NavItem[] = [
   { key: "users", href: "/users", permission: PERMISSIONS.usersRead, icon: Users },
   { key: "roles", href: "/roles", permission: PERMISSIONS.rolesRead, icon: ShieldCheck },
   { key: "queues", href: "/queues", permission: PERMISSIONS.queuesRead, icon: Layers },
+  { key: "sourceCoverage", href: "/source-coverage", permission: PERMISSIONS.settingsManage, icon: Layers },
 ];
 
 const settingsSubItems: SettingsSubItem[] = [
