@@ -7,11 +7,20 @@ import { enqueuePendingAlerts } from "./backfill";
 import { fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { desc } from "drizzle-orm";
 
-let isRunning = false;
+// globalThis flag: dev HMR re-runs module code, resetting module-level state
+// and letting a fresh startWorker spin up a new pg-boss pool without the old
+// one ever being closed. Survives reloads so only ONE worker per Node process.
+const GLOBAL_WORKER_KEY = "__wazuhWorkerStarted__";
+function workerStarted(): boolean {
+  return (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] === true;
+}
+function markWorkerStarted(): void {
+  (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] = true;
+}
 
 export async function startWorker(config: AppConfig) {
-  if (isRunning) return;
-  isRunning = true;
+  if (workerStarted()) return;
+  markWorkerStarted();
 
   const boss = await getPgBoss(config);
   await registerQueues(boss, config);
@@ -84,8 +93,7 @@ export async function startWorker(config: AppConfig) {
 }
 
 export async function stopWorker() {
-  if (!isRunning) return;
   console.log("[Worker] Stopping...");
   await stopPgBoss();
-  isRunning = false;
+  (globalThis as Record<string, unknown>)[GLOBAL_WORKER_KEY] = false;
 }
