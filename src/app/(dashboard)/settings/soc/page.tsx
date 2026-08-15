@@ -17,6 +17,7 @@ interface SocSettingsData {
   tiMinLevel: number;
   tiCacheTtlDays: number;
   analyzeCooldownSeconds: Record<string, number>;
+  analysisTagScope: { allowTags: string[]; denyTags: string[] } | null;
 }
 
 interface State {
@@ -31,6 +32,8 @@ interface State {
   /** Cooldown editor: "ruleId:minutes" lines + a default (global) minutes. */
   cooldownLines: string;
   cooldownDefault: string;
+  allowTagsLines: string;
+  denyTagsLines: string;
 }
 
 export default function SettingsSocPage() {
@@ -45,6 +48,8 @@ export default function SettingsSocPage() {
     greynoiseKey: "",
     cooldownLines: "",
     cooldownDefault: "60",
+    allowTagsLines: "",
+    denyTagsLines: "",
   });
 
   useEffect(() => {
@@ -61,6 +66,8 @@ export default function SettingsSocPage() {
           cooldownLines: Object.entries(b.data.analyzeCooldownSeconds)
             .map(([rule, sec]) => `${rule}:${Math.round(sec / 60)}`)
             .join("\n"),
+          allowTagsLines: (b.data.analysisTagScope?.allowTags ?? []).join("\n"),
+          denyTagsLines: (b.data.analysisTagScope?.denyTags ?? []).join("\n"),
         })),
       )
       .catch(() => setState((s) => ({ ...s, error: t("fetch-error") })));
@@ -108,6 +115,16 @@ export default function SettingsSocPage() {
       const def = Number(state.cooldownDefault);
       payload.analyzeCooldownSeconds = { ...cooldown, "*": Number.isFinite(def) && def >= 0 ? Math.round(def * 60) : 3600 };
 
+      // Tag scope: one tag per line, trimmed, empties dropped (order preserved).
+      const parseTags = (lines: string) =>
+        lines
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+      const allowTags = parseTags(state.allowTagsLines);
+      const denyTags = parseTags(state.denyTagsLines);
+      payload.analysisTagScope = { allowTags, denyTags };
+
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +145,7 @@ export default function SettingsSocPage() {
               otxKeySet: s.otxKey.trim().length > 0 ? true : s.data.otxKeySet,
               greynoiseKeySet: s.greynoiseKey.trim().length > 0 ? true : s.data.greynoiseKeySet,
               analyzeCooldownSeconds: cooldown,
+              analysisTagScope: { allowTags, denyTags },
             }
           : null,
       }));
@@ -375,6 +393,39 @@ export default function SettingsSocPage() {
               className="auth-input font-mono text-xs"
               placeholder="533:60&#10;40103:0"
             />
+          </div>
+        </div>
+
+        <div className="border-t border-[var(--color-hairline)] pt-4 space-y-4">
+          <h2 className="text-sm font-semibold">{t("analysis-scope-title")}</h2>
+          <p className="text-xs text-[var(--color-ink-muted)]">{t("analysis-scope-desc")}</p>
+          <div className="form-field">
+            <label htmlFor="analysisAllowTags" className="text-sm text-[var(--color-ink-muted)]">
+              {t("analysis-allow-tags")}
+            </label>
+            <textarea
+              id="analysisAllowTags"
+              rows={4}
+              value={state.allowTagsLines}
+              onChange={(e) => setState((s) => ({ ...s, allowTagsLines: e.target.value, saved: false }))}
+              className="auth-input font-mono text-xs"
+              placeholder="T1046"
+            />
+            <p className="text-xs text-[var(--color-ink-muted)]">{t("analysis-allow-hint")}</p>
+          </div>
+          <div className="form-field">
+            <label htmlFor="analysisDenyTags" className="text-sm text-[var(--color-ink-muted)]">
+              {t("analysis-deny-tags")}
+            </label>
+            <textarea
+              id="analysisDenyTags"
+              rows={4}
+              value={state.denyTagsLines}
+              onChange={(e) => setState((s) => ({ ...s, denyTagsLines: e.target.value, saved: false }))}
+              className="auth-input font-mono text-xs"
+              placeholder="T1055"
+            />
+            <p className="text-xs text-[var(--color-ink-muted)]">{t("analysis-deny-hint")}</p>
           </div>
         </div>
 

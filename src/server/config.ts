@@ -23,7 +23,7 @@ const environmentSchema = z
       .enum(["true", "false"])
       .default("false")
       .transform((value) => value === "true"),
-    SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(7),
+    SOC_AUTO_ANALYZE_MIN_LEVEL: positiveInteger.default(12), // high+ = Wazuh level >= 12
     SOC_AUTO_CREATE_INCIDENT: z
       .enum(["true", "false"])
       .default("true")

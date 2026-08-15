@@ -28,6 +28,7 @@ const BASE_DATA = {
   tiMinLevel: 7,
   tiCacheTtlDays: 30,
   analyzeCooldownSeconds: { "533": 3600 },
+  analysisTagScope: { allowTags: ["T1046"], denyTags: ["T1055"] },
 };
 
 beforeEach(() => {
@@ -69,6 +70,36 @@ describe("SettingsSocPage cooldown editor", () => {
       expect(patchCall).toBeTruthy();
       const body = JSON.parse((patchCall![1] as RequestInit).body as string);
       expect(body.analyzeCooldownSeconds).toEqual({ "533": 7200, "40103": 0, "*": 3600 });
+    });
+  });
+});
+
+describe("SettingsSocPage analysis tag scope", () => {
+  it("loads existing allow/deny tags into the textareas", async () => {
+    render(<SettingsSocPage />);
+    await waitFor(() => {
+      const allow = screen.getByLabelText("analysis-allow-tags") as HTMLTextAreaElement;
+      const deny = screen.getByLabelText("analysis-deny-tags") as HTMLTextAreaElement;
+      expect(allow.value).toBe("T1046");
+      expect(deny.value).toBe("T1055");
+    });
+  });
+
+  it("submits allow/deny lines as trimmed, empty-filtered tag arrays", async () => {
+    render(<SettingsSocPage />);
+    const allow = (await screen.findByLabelText("analysis-allow-tags")) as HTMLTextAreaElement;
+    const deny = (await screen.findByLabelText("analysis-deny-tags")) as HTMLTextAreaElement;
+    fireEvent.change(allow, { target: { value: "T1046\n\nT1059\n" } });
+    fireEvent.change(deny, { target: { value: "T1055\nT1562" } });
+    fireEvent.click(screen.getByText("soc-save"));
+
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find(
+        (c) => c[0] === "/api/settings" && (c[1] as RequestInit)?.method === "PATCH",
+      );
+      expect(patchCall).toBeTruthy();
+      const body = JSON.parse((patchCall![1] as RequestInit).body as string);
+      expect(body.analysisTagScope).toEqual({ allowTags: ["T1046", "T1059"], denyTags: ["T1055", "T1562"] });
     });
   });
 });

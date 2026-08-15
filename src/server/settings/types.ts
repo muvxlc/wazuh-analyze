@@ -25,4 +25,5 @@ export type SystemSettingKey =
   | "fpMemoryEnabled"
   | "fpMemoryTtlDays"
   | "fpMemorySeverityFloor"
-  | "analyzeCooldownSeconds";
+  | "analyzeCooldownSeconds"
+  | "analysisTagScope";

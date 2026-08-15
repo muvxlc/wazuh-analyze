@@ -51,6 +51,12 @@ const patchSchema = z
     wazuhIndexerUsername: z.string().min(1).max(200).optional(),
     wazuhIndexerPassword: z.string().min(1).max(500).optional(),
     analyzeCooldownSeconds: z.record(z.string(), z.number().int().min(0).max(86_400)).optional(),
+    analysisTagScope: z
+      .object({
+        allowTags: z.array(z.string()).optional(),
+        denyTags: z.array(z.string()).optional(),
+      })
+      .optional(),
   })
   .strict();
 
@@ -81,6 +87,7 @@ const BODY_TO_KEY: Record<string, SystemSettingKey> = {
   wazuhIndexerUsername: "wazuhIndexerUsername",
   wazuhIndexerPassword: "wazuhIndexerPassword",
   analyzeCooldownSeconds: "analyzeCooldownSeconds",
+  analysisTagScope: "analysisTagScope",
 };
 
 export async function GET(request: Request): Promise<Response> {

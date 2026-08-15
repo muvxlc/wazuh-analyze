@@ -34,7 +34,7 @@ describe("loadConfig", () => {
       maintenanceBatchSize: 1_000,
       socAutoAnalyze: false,
       socAutoAnalyzeVulnerabilities: false,
-      socAutoAnalyzeMinLevel: 7,
+      socAutoAnalyzeMinLevel: 12,
       wazuh: {
         username: "wazuh-user",
         password: "wazuh-password",

@@ -32,6 +32,7 @@ import { refreshAbuseIpDbBlacklist } from "../ti/abuseipdb";
 import { DbTiCache } from "../ti/store";
 import { checkSourceFreshness, FRESHNESS_QUEUE } from "./freshness";
 import { retrySingleDeadLetter } from "../ingestion/dead-letter-retry";
+import { getRuleMitreTechniques } from "../mitre/rule-map";
 import { listDeadLetters } from "../ingestion/dead-letter";
 
 export const QUEUE_WEEKLY_REPORT = "weekly-soc-report";
@@ -402,6 +403,70 @@ export async function isRecentAnalysisForRule(db: Database, alertId: string, enc
   return !!recent;
 }
 
+/**
+ * Analysis scope gate: deny tags → allow tags → min level, in that precedence
+ * order. Deny wins if any deny tag matches; an allow list (when non-empty) must
+ * match or the alert is skipped outright; otherwise the level gate applies.
+ * `force` bypasses the whole gate (enforced by the `if (!force)` wrapper).
+ * Best-effort: any failure returns allow so enqueue still happens.
+ */
+export async function shouldAnalyzeAlert(
+  db: Database,
+  config: AppConfig,
+  alertId: string,
+): Promise<{ shouldAnalyze: boolean; reason: "deny-tag" | "no-allow-match" | "below-level" | null }> {
+  const [alert] = await db
+    .select({ level: schema.alerts.level, ruleId: schema.alerts.ruleId, rawPayload: schema.alerts.rawPayload })
+    .from(schema.alerts)
+    .where(eq(schema.alerts.id, alertId))
+    .limit(1);
+  if (!alert) return { shouldAnalyze: true, reason: null };
+
+  const scopeRows = await getSettingByKey(db, "analysisTagScope");
+  const scopeRaw = scopeRows?.value;
+  let scope: { allowTags?: string[]; denyTags?: string[] } = {};
+  if (scopeRaw) {
+    try {
+      // updateSettings encrypts all values; decrypt before parsing.
+      const decrypted = scopeRaw && typeof scopeRaw === "object" && "iv" in scopeRaw
+        ? JSON.parse(decryptSecret(scopeRaw as Parameters<typeof decryptSecret>[0], config.settingsEncryptionKey))
+        : scopeRaw;
+      scope = (typeof decrypted === "string" ? JSON.parse(decrypted) : decrypted) as { allowTags?: string[]; denyTags?: string[] };
+    } catch {
+      // malformed value → treat scope as empty
+    }
+  }
+  const normalize = (tag: string) => tag.trim().toUpperCase();
+  const denyTags = (scope.denyTags ?? []).map(normalize).filter(Boolean);
+  const allowTags = (scope.allowTags ?? []).map(normalize).filter(Boolean);
+
+  const techniques = new Set(getRuleMitreTechniques(alert.ruleId, alert.rawPayload).map((t) => t.techniqueId.toUpperCase()));
+  if (denyTags.some((tag) => techniques.has(tag))) return { shouldAnalyze: false, reason: "deny-tag" };
+  if (allowTags.length > 0) {
+    return allowTags.some((tag) => techniques.has(tag))
+      ? { shouldAnalyze: true, reason: null }
+      : { shouldAnalyze: false, reason: "no-allow-match" };
+  }
+
+  const minRows = await getSettingByKey(db, "socAutoAnalyzeMinLevel");
+  const minRaw = minRows?.value;
+  let minLevel = config.socAutoAnalyzeMinLevel;
+  if (minRaw) {
+    try {
+      const decrypted = minRaw && typeof minRaw === "object" && "iv" in minRaw
+        ? JSON.parse(decryptSecret(minRaw as Parameters<typeof decryptSecret>[0], config.settingsEncryptionKey))
+        : minRaw;
+      const parsed = typeof decrypted === "string" ? JSON.parse(decrypted) : decrypted;
+      if (typeof parsed === "number" && Number.isFinite(parsed)) minLevel = parsed;
+    } catch {
+      // malformed value → fall back to config default
+    }
+  }
+  return alert.level < minLevel
+    ? { shouldAnalyze: false, reason: "below-level" }
+    : { shouldAnalyze: true, reason: null };
+}
+
 /** Enqueue analysis. Manual reruns bypass singleton dedupe; backfill stays idempotent. */
 export async function enqueueAlertAnalysis(
   alertId: string,
@@ -414,6 +479,11 @@ export async function enqueueAlertAnalysis(
   if (!force) {
     const { db, pool } = createDatabase(config.databaseUrl);
     try {
+      const gate = await shouldAnalyzeAlert(db, config, alertId);
+      if (!gate.shouldAnalyze) {
+        console.log(`[Queue:analyze] scope skip ${alertId} (${gate.reason})`);
+        return;
+      }
       const skippable = await isRecentAnalysisForRule(db, alertId, config.settingsEncryptionKey);
       if (skippable) {
         console.log(`[Queue:analyze] rule-cooldown skip ${alertId} (recent analysis for same rule+agent)`);
