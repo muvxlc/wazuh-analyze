@@ -21,6 +21,7 @@ import { dispatchNotification } from "../notifications/dispatcher";
 import type { NotificationEvent } from "../notifications/render";
 import { fetchVulnerabilityById, fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { writeAuditEvent } from "../audit/audit-service";
+import { decryptSecret } from "../settings/encryption";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
 import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
@@ -359,7 +360,7 @@ async function registerQueuesInternal(
  * key `analyzeCooldownSeconds` (JSON map ruleId -> seconds); global default
  * 3600. Best-effort: any failure falls through to enqueue.
  */
-export async function isRecentAnalysisForRule(db: Database, alertId: string): Promise<boolean> {
+export async function isRecentAnalysisForRule(db: Database, alertId: string, encryptionKey: string): Promise<boolean> {
   const [alert] = await db
     .select({ ruleId: schema.alerts.ruleId, agentId: schema.alerts.agentId })
     .from(schema.alerts)
@@ -372,8 +373,12 @@ export async function isRecentAnalysisForRule(db: Database, alertId: string): Pr
   let cooldownMs = 60 * 60 * 1000;
   if (raw) {
     try {
-      const map = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const override = (map as Record<string, number>)[alert.ruleId];
+      // updateSettings encrypts all values; decrypt before parsing.
+      const decrypted = raw && typeof raw === "object" && "iv" in raw
+        ? JSON.parse(decryptSecret(raw as Parameters<typeof decryptSecret>[0], encryptionKey))
+        : raw;
+      const rec = (typeof decrypted === "string" ? JSON.parse(decrypted) : decrypted) as Record<string, number>;
+      const override = rec[alert.ruleId] ?? rec["*"];
       if (typeof override === "number" && Number.isFinite(override) && override >= 0) {
         cooldownMs = override * 1000;
       }
@@ -409,7 +414,7 @@ export async function enqueueAlertAnalysis(
   if (!force) {
     const { db, pool } = createDatabase(config.databaseUrl);
     try {
-      const skippable = await isRecentAnalysisForRule(db, alertId);
+      const skippable = await isRecentAnalysisForRule(db, alertId, config.settingsEncryptionKey);
       if (skippable) {
         console.log(`[Queue:analyze] rule-cooldown skip ${alertId} (recent analysis for same rule+agent)`);
         return;

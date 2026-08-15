@@ -8,6 +8,7 @@ import { createTestPool } from "../../test/postgres/database";
 import { resetTestDatabase } from "../../test/postgres/reset";
 import { isRecentAnalysisForRule } from "./queue";
 import { upsertSetting } from "../settings/repository";
+import { encryptSecret } from "../settings/encryption";
 
 describe("isRecentAnalysisForRule", () => {
   let db: Database;
@@ -16,6 +17,7 @@ describe("isRecentAnalysisForRule", () => {
 
   const RULE = "533";
   const AGENT = "mac-room";
+  const KEY = "test-encryption-key-0123456789abcdef";
 
   beforeEach(async () => {
     pool = createTestPool();
@@ -59,7 +61,7 @@ describe("isRecentAnalysisForRule", () => {
 
   it("returns false when no prior analysis exists for rule+agent", async () => {
     const alertId = await insertAlert(RULE, AGENT);
-    await expect(isRecentAnalysisForRule(db, alertId)).resolves.toBe(false);
+    await expect(isRecentAnalysisForRule(db, alertId, KEY)).resolves.toBe(false);
   });
 
   it("returns true when a recent analysis exists for same rule+agent", async () => {
@@ -84,7 +86,7 @@ describe("isRecentAnalysisForRule", () => {
     });
 
     const alertId = await insertAlert(RULE, AGENT);
-    await expect(isRecentAnalysisForRule(db, alertId)).resolves.toBe(true);
+    await expect(isRecentAnalysisForRule(db, alertId, KEY)).resolves.toBe(true);
   });
 
   it("returns false for a different agent with the same rule", async () => {
@@ -109,7 +111,7 @@ describe("isRecentAnalysisForRule", () => {
     });
 
     const alertId = await insertAlert(RULE, AGENT);
-    await expect(isRecentAnalysisForRule(db, alertId)).resolves.toBe(false);
+    await expect(isRecentAnalysisForRule(db, alertId, KEY)).resolves.toBe(false);
   });
 
   it("returns false when the cooldown window is zero for the rule", async () => {
@@ -135,6 +137,37 @@ describe("isRecentAnalysisForRule", () => {
     await upsertSetting(db, "analyzeCooldownSeconds", { [RULE]: 0 } as never, null);
 
     const alertId = await insertAlert(RULE, AGENT);
-    await expect(isRecentAnalysisForRule(db, alertId)).resolves.toBe(false);
+    await expect(isRecentAnalysisForRule(db, alertId, KEY)).resolves.toBe(false);
+  });
+
+  it("reads an encrypted cooldown map (as updateSettings stores it)", async () => {
+    const [prior] = await db
+      .insert(schema.alerts)
+      .values({
+        fingerprint: `${RULE}-${AGENT}-prior-enc`,
+        wazuhTimestamp: new Date(),
+        ruleId: RULE,
+        agentId: AGENT,
+        ruleDescription: "test rule",
+        level: 7,
+        rawPayload: { test: true },
+      })
+      .returning({ id: schema.alerts.id });
+    await db.insert(schema.alertAnalyses).values({
+      alertId: prior.id,
+      provider: "test",
+      model: "test",
+      verdict: { severity: "medium", confidence: 0.5 },
+      createdByUserId: userId,
+    });
+    await upsertSetting(
+      db,
+      "analyzeCooldownSeconds",
+      encryptSecret(JSON.stringify({ [RULE]: 3600 }), "test-encryption-key-0123456789abcdef") as never,
+      null,
+    );
+
+    const alertId = await insertAlert(RULE, AGENT);
+    await expect(isRecentAnalysisForRule(db, alertId, KEY)).resolves.toBe(true);
   });
 });

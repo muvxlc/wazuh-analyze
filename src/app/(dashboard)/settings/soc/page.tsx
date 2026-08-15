@@ -16,6 +16,7 @@ interface SocSettingsData {
   greynoiseKeySet: boolean;
   tiMinLevel: number;
   tiCacheTtlDays: number;
+  analyzeCooldownSeconds: Record<string, number>;
 }
 
 interface State {
@@ -27,6 +28,9 @@ interface State {
   abuseipdbKey: string;
   otxKey: string;
   greynoiseKey: string;
+  /** Cooldown editor: "ruleId:minutes" lines + a default (global) minutes. */
+  cooldownLines: string;
+  cooldownDefault: string;
 }
 
 export default function SettingsSocPage() {
@@ -39,6 +43,8 @@ export default function SettingsSocPage() {
     abuseipdbKey: "",
     otxKey: "",
     greynoiseKey: "",
+    cooldownLines: "",
+    cooldownDefault: "60",
   });
 
   useEffect(() => {
@@ -48,7 +54,14 @@ export default function SettingsSocPage() {
         return r.json();
       })
       .then((b: { data: SocSettingsData }) =>
-        setState((s) => ({ ...s, data: b.data, error: null })),
+        setState((s) => ({
+          ...s,
+          data: b.data,
+          error: null,
+          cooldownLines: Object.entries(b.data.analyzeCooldownSeconds)
+            .map(([rule, sec]) => `${rule}:${Math.round(sec / 60)}`)
+            .join("\n"),
+        })),
       )
       .catch(() => setState((s) => ({ ...s, error: t("fetch-error") })));
   }, [t]);
@@ -82,6 +95,19 @@ export default function SettingsSocPage() {
       if (state.otxKey.trim()) payload.otxKey = state.otxKey.trim();
       if (state.greynoiseKey.trim()) payload.greynoiseKey = state.greynoiseKey.trim();
 
+      // Cooldown: "ruleId:minutes" per line → {ruleId: seconds}.
+      const cooldown: Record<string, number> = {};
+      for (const raw of state.cooldownLines.split("\n")) {
+        const line = raw.trim();
+        if (!line) continue;
+        const [rule, mins] = line.split(":");
+        if (!rule || !mins) continue;
+        const n = Number(mins.trim());
+        if (Number.isFinite(n) && n >= 0) cooldown[rule.trim()] = Math.round(n * 60);
+      }
+      const def = Number(state.cooldownDefault);
+      payload.analyzeCooldownSeconds = { ...cooldown, "*": Number.isFinite(def) && def >= 0 ? Math.round(def * 60) : 3600 };
+
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +127,7 @@ export default function SettingsSocPage() {
               abuseipdbKeySet: s.abuseipdbKey.trim().length > 0 ? true : s.data.abuseipdbKeySet,
               otxKeySet: s.otxKey.trim().length > 0 ? true : s.data.otxKeySet,
               greynoiseKeySet: s.greynoiseKey.trim().length > 0 ? true : s.data.greynoiseKeySet,
+              analyzeCooldownSeconds: cooldown,
             }
           : null,
       }));
@@ -316,6 +343,38 @@ export default function SettingsSocPage() {
                 className="auth-input"
               />
             </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[var(--color-hairline)] pt-4 space-y-4">
+          <h2 className="text-sm font-semibold">{t("cooldown-title")}</h2>
+          <p className="text-xs text-[var(--color-ink-muted)]">{t("cooldown-desc")}</p>
+          <div className="form-field">
+            <label htmlFor="cooldownDefault" className="text-sm text-[var(--color-ink-muted)]">
+              {t("cooldown-default")}
+            </label>
+            <input
+              id="cooldownDefault"
+              type="number"
+              min={0}
+              max={1440}
+              value={state.cooldownDefault}
+              onChange={(e) => setState((s) => ({ ...s, cooldownDefault: e.target.value, saved: false }))}
+              className="auth-input"
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="cooldownLines" className="text-sm text-[var(--color-ink-muted)]">
+              {t("cooldown-per-rule")}
+            </label>
+            <textarea
+              id="cooldownLines"
+              rows={4}
+              value={state.cooldownLines}
+              onChange={(e) => setState((s) => ({ ...s, cooldownLines: e.target.value, saved: false }))}
+              className="auth-input font-mono text-xs"
+              placeholder="533:60&#10;40103:0"
+            />
           </div>
         </div>
 
