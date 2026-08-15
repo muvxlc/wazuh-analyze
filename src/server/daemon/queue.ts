@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 import type { Job } from "pg-boss";
-import { eq, sql, desc, and, lt } from "drizzle-orm";
+import { eq, sql, desc, and, lt, gt, isNull } from "drizzle-orm";
 
 type JobBatch<Data> = Job<Data>[];
 import { AppConfig, loadConfig } from "../config";
@@ -9,6 +9,8 @@ import { createDatabase } from "../db/client";
 import * as schema from "../db/schema";
 import { ActorContext } from "../authorization/permissions";
 import { resolveEffectiveConfig } from "../settings/service";
+import { getSettingByKey } from "../settings/repository";
+import type { Database } from "../db/types";
 import { runAlertAnalysis } from "../ai/analyze-service";
 import { runVulnerabilityAnalysis } from "../ai/vulnerability-analyze-service";
 import { correlateAlert } from "../incidents/correlator";
@@ -19,6 +21,7 @@ import { dispatchNotification } from "../notifications/dispatcher";
 import type { NotificationEvent } from "../notifications/render";
 import { fetchVulnerabilityById, fetchAgentVulnerabilities } from "../wazuh/indexer";
 import { writeAuditEvent } from "../audit/audit-service";
+import { decryptSecret } from "../settings/encryption";
 import { randomUUID } from "crypto";
 import { RequestMetadata } from "../http/request-metadata";
 import { fetchApprovedActions, markActionExecuted } from "../actions/action-service";
@@ -348,6 +351,57 @@ async function registerQueuesInternal(
   console.log("[PgBoss] Queues registered");
 }
 
+/**
+ * Burst suppression: skip enqueue when this alert's (ruleId, agentId) already
+ * has a successful analysis within the cooldown window (default 60 min).
+ * Flood rules (e.g. rule 533 netstat) otherwise enqueue one AI call per
+ * alert instance; this collapses a ×60 burst to a single analysis per window.
+ * `force` bypasses (manual rerun). Window is set per-rule via system_settings
+ * key `analyzeCooldownSeconds` (JSON map ruleId -> seconds); global default
+ * 3600. Best-effort: any failure falls through to enqueue.
+ */
+export async function isRecentAnalysisForRule(db: Database, alertId: string, encryptionKey: string): Promise<boolean> {
+  const [alert] = await db
+    .select({ ruleId: schema.alerts.ruleId, agentId: schema.alerts.agentId })
+    .from(schema.alerts)
+    .where(eq(schema.alerts.id, alertId))
+    .limit(1);
+  if (!alert?.ruleId) return false;
+
+  const rows = await getSettingByKey(db, "analyzeCooldownSeconds");
+  const raw = rows?.value;
+  let cooldownMs = 60 * 60 * 1000;
+  if (raw) {
+    try {
+      // updateSettings encrypts all values; decrypt before parsing.
+      const decrypted = raw && typeof raw === "object" && "iv" in raw
+        ? JSON.parse(decryptSecret(raw as Parameters<typeof decryptSecret>[0], encryptionKey))
+        : raw;
+      const rec = (typeof decrypted === "string" ? JSON.parse(decrypted) : decrypted) as Record<string, number>;
+      const override = rec[alert.ruleId] ?? rec["*"];
+      if (typeof override === "number" && Number.isFinite(override) && override >= 0) {
+        cooldownMs = override * 1000;
+      }
+    } catch {
+      // malformed value → fall back to default window
+    }
+  }
+  if (cooldownMs === 0) return false;
+
+  const since = new Date(Date.now() - cooldownMs);
+  const [recent] = await db
+    .select({ id: schema.alertAnalyses.id })
+    .from(schema.alertAnalyses)
+    .innerJoin(schema.alerts, eq(schema.alertAnalyses.alertId, schema.alerts.id))
+    .where(and(
+      eq(schema.alerts.ruleId, alert.ruleId),
+      alert.agentId ? eq(schema.alerts.agentId, alert.agentId) : isNull(schema.alerts.agentId),
+      gt(schema.alertAnalyses.createdAt, since),
+    ))
+    .limit(1);
+  return !!recent;
+}
+
 /** Enqueue analysis. Manual reruns bypass singleton dedupe; backfill stays idempotent. */
 export async function enqueueAlertAnalysis(
   alertId: string,
@@ -357,6 +411,21 @@ export async function enqueueAlertAnalysis(
   const pgBoss = await getPgBoss(config);
   await registerQueues(pgBoss, config);
   const { force, ...analysisOptions } = options;
+  if (!force) {
+    const { db, pool } = createDatabase(config.databaseUrl);
+    try {
+      const skippable = await isRecentAnalysisForRule(db, alertId, config.settingsEncryptionKey);
+      if (skippable) {
+        console.log(`[Queue:analyze] rule-cooldown skip ${alertId} (recent analysis for same rule+agent)`);
+        return;
+      }
+    } catch (err) {
+      // Cooldown is best-effort — never block enqueue on a lookup failure.
+      console.error("[Queue:analyze] rule-cooldown lookup failed; enqueueing", err);
+    } finally {
+      await pool.end();
+    }
+  }
   await pgBoss.send(QUEUE_ANALYZE_ALERT, { alertId, ...analysisOptions, force: force ?? false }, {
     ...(force ? {} : {
       singletonKey: `analyze:${alertId}`,

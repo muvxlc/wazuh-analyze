@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { RawJson } from "./raw-json";
 import { AlertAnalysisPanel } from "./alert-analysis-panel";
+import { AlertEvidencePanel } from "./alert-evidence-panel";
 import { SEVERITY_COLORS, severityFromLevel, severityLabel } from "../../server/alerts/severity-mapper";
 import type { AlertDetail as AlertDetailType } from "../../server/alerts/types";
 
@@ -97,6 +98,7 @@ export function AlertDrawer({ alert, isOpen, onClose, canAnalyze = false }: Aler
         </div>
         <div className="flex-1 overflow-y-auto pr-2">
           <AlertAnalysisPanel alertId={alert.id} canAnalyze={canAnalyze} />
+          <AlertEvidencePanel alertId={alert.id} />
           <dl className="detail-list">
             <div><dt>Agent</dt><dd>{alert.agentName ?? alert.agentId ?? "-"}</dd></div>
             <div><dt>Rule ID</dt><dd>{alert.ruleId ?? "-"}</dd></div>

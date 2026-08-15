@@ -9,6 +9,7 @@ import { SEVERITY_COLORS, severityLabel } from "../../server/alerts/severity-map
 import { UndoToast } from "../ui/undo-toast";
 import { IncidentActions } from "./incident-actions";
 import { IncidentNotes } from "./incident-notes";
+import { IncidentEvidencePanel } from "./incident-evidence-panel";
 
 interface Props {
   readonly initialIncident: IncidentDetail;
@@ -225,6 +226,7 @@ export function IncidentDetailView({ initialIncident, canManage, canApprove }: P
       <IncidentActions incidentId={incident.id} canApprove={canApprove} />
 
       <IncidentNotes incidentId={incident.id} canManage={canManage} />
+      <IncidentEvidencePanel incidentId={incident.id} canManage={canManage} />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <section className="rounded-[8px] border border-[var(--color-hairline)] p-6">

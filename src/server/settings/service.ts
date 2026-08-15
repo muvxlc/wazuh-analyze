@@ -52,6 +52,7 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "fpMemoryEnabled",
   "fpMemoryTtlDays",
   "fpMemorySeverityFloor",
+  "analyzeCooldownSeconds",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {
@@ -214,6 +215,8 @@ export interface SettingsView {
   wazuhIndexerUrl: string;
   wazuhIndexerUsernameSet: boolean;
   wazuhIndexerPasswordSet: boolean;
+  /** Per-rule analyze cooldown in seconds; {} = no overrides (use global default). */
+  analyzeCooldownSeconds: Record<string, number>;
   /** Per-key source flags: true = value came from DB row. */
   sources: Partial<Record<SystemSettingKey, boolean>>;
 }
@@ -255,6 +258,10 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
     wazuhIndexerUrl: effective.wazuh.indexer?.url.origin ?? "",
     wazuhIndexerUsernameSet: (effective.wazuh.indexer?.username ?? "").length > 0,
     wazuhIndexerPasswordSet: (effective.wazuh.indexer?.password ?? "").length > 0,
+    analyzeCooldownSeconds: parseCooldownMap(
+      rows.get("analyzeCooldownSeconds")?.value,
+      config.settingsEncryptionKey,
+    ),
     sources: {
       wazuhApiUrl: src("wazuhApiUrl"),
       wazuhUsername: src("wazuhUsername"),
@@ -281,8 +288,29 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       fpMemoryEnabled: src("fpMemoryEnabled"),
       fpMemoryTtlDays: src("fpMemoryTtlDays"),
       fpMemorySeverityFloor: src("fpMemorySeverityFloor"),
+      analyzeCooldownSeconds: src("analyzeCooldownSeconds"),
     },
   };
+}
+
+/** Parse stored {ruleId: seconds} map; tolerant of malformed/missing. */
+function parseCooldownMap(raw: unknown, encryptionKey: string): Record<string, number> {
+  let parsed: unknown = raw;
+  if (raw && typeof raw === "object" && "iv" in raw) {
+    try {
+      parsed = JSON.parse(decryptSecret(raw as Parameters<typeof decryptSecret>[0], encryptionKey));
+    } catch {
+      return {};
+    }
+  }
+  if (parsed && typeof parsed === "object") {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[k] = v;
+    }
+    return out;
+  }
+  return {};
 }
 
 export interface UpdateSettingEntry {

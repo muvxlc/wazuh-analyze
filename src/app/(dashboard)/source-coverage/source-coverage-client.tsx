@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ReplayControl } from "../../../components/source-coverage/replay-control";
+import { SlaEditor } from "../../../components/source-coverage/sla-editor";
 
 interface SourceEntry {
   id: string;
@@ -108,12 +110,15 @@ export function SourceCoverageClient({ canManage }: Props) {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t("title")}</h1>
-        {canManage && (
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
-            {t("stale-only")}
-          </label>
-        )}
+        <div className="flex items-center gap-3">
+          <ReplayControl canManage={canManage} />
+          {canManage && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={staleOnly} onChange={(e) => setStaleOnly(e.target.checked)} />
+              {t("stale-only")}
+            </label>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -154,7 +159,15 @@ export function SourceCoverageClient({ canManage }: Props) {
                   <td className="py-2 pr-3">{fmtTime(s.lastEventAt)}</td>
                   <td className="py-2 pr-3">{s.itemCount ?? "—"}</td>
                   <td className="py-2 pr-3">{s.parseErrorCount}</td>
-                  <td className="py-2 pr-3">{s.freshnessSlaMs != null ? `${Math.round(s.freshnessSlaMs / 60000)}m` : "—"}</td>
+                  <td className="py-2 pr-3">
+                    <SlaEditor
+                      source={s}
+                      canManage={canManage}
+                      onSaved={(updated) =>
+                        setSources((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+                      }
+                    />
+                  </td>
                   <td className="py-2 pr-3 max-w-[220px] truncate" title={s.lastError ?? undefined}>{s.lastError ?? "—"}</td>
                   {canManage && (
                     <td className="py-2 pr-3">

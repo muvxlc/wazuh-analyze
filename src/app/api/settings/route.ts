@@ -50,6 +50,7 @@ const patchSchema = z
     wazuhIndexerUrl: z.string().url().optional(),
     wazuhIndexerUsername: z.string().min(1).max(200).optional(),
     wazuhIndexerPassword: z.string().min(1).max(500).optional(),
+    analyzeCooldownSeconds: z.record(z.string(), z.number().int().min(0).max(86_400)).optional(),
   })
   .strict();
 
@@ -79,6 +80,7 @@ const BODY_TO_KEY: Record<string, SystemSettingKey> = {
   wazuhIndexerUrl: "wazuhIndexerUrl",
   wazuhIndexerUsername: "wazuhIndexerUsername",
   wazuhIndexerPassword: "wazuhIndexerPassword",
+  analyzeCooldownSeconds: "analyzeCooldownSeconds",
 };
 
 export async function GET(request: Request): Promise<Response> {
@@ -122,11 +124,9 @@ export async function PATCH(request: Request): Promise<Response> {
       value:
         value === null || value === undefined
           ? null
-          : typeof value === "boolean"
-            ? String(value)
-            : typeof value === "number"
-              ? String(value)
-              : String(value),
+          : typeof value === "object"
+            ? JSON.stringify(value)
+            : String(value),
     }));
 
     if (entries.length === 0) {
