@@ -87,7 +87,7 @@ Analyst กด Analyze → AI คืน rich SOC verdict → เก็บ → �
 
 **UI**: `AlertAnalysisPanel` (client island) ใน `src/components/alerts/alert-detail.tsx` — ปุ่ม Analyze + แสดง verdict (severity, confidence, MITRE chips, recommended_actions, falsePositive badge, threatIntel score). ส่ง `canAnalyze` จาก `[id]/page.tsx`
 
-**Optional (ท้าย Phase 0 หลัง setting)**: enqueue-on-ingest ใน `integrations/wazuh/alerts/route.ts` — fire-and-forget `runAlertAnalysisAsync` (**เปิด pool ตัวเอง** `createDatabase()` เพราะ request pool ปิดใน `finally`; `finally pool.end()`) เมื่อ `inserted && level>=7 && config.socAutoAnalyze`. เพิ่ม `SOC_AUTO_ANALYZE`/`SOC_AUTO_ANALYZE_MIN_LEVEL` ใน `config.ts` (default off/7)
+**Optional (ท้าย Phase 0 หลัง setting)**: enqueue-on-ingest ใน `integrations/wazuh/alerts/route.ts` — fire-and-forget `runAlertAnalysisAsync` (**เปิด pool ตัวเอง** `createDatabase()` เพราะ request pool ปิดใน `finally`; `finally pool.end()`) เมื่อ `inserted && level>=12 && config.socAutoAnalyze`. เพิ่ม `SOC_AUTO_ANALYZE`/`SOC_AUTO_ANALYZE_MIN_LEVEL` ใน `config.ts` (default off/12)
 
 **Verification**: `analysis.test.ts` (extend — reject MITRE ผิดรูปแบบ, `.chat` mock), `analyze-service.test.ts` (permission denied/happy), route test, Playwright `tests/e2e/alert-analysis.spec.ts`
 
@@ -248,8 +248,8 @@ group alert → incident + lifecycle + detail + timeline
 | **T0.5** | [NEW] service `analyze-service.ts` (`runAlertAnalysis`) + test | `src/server/ai/analyze-service.ts` (new), `.test.ts` | 🟢 | vitest: permission denied throw, happy-path insert row+audit (mock provider+db). ยังไม่มี route เรียก |
 | **T0.6** | [NEW] route `api/alerts/[id]/analysis` (GET list/POST analyze) + test | `src/app/api/alerts/[id]/analysis/route.ts` (new), `.test.ts` | 🟢 | route test 401/403/201/GET. endpoint ใหม่ ไม่แตะ route เดิม |
 | **T0.7** | [MOD] UI — `AlertAnalysisPanel` (client island) embed ใน `alert-detail.tsx`; ส่ง `canAnalyze` จาก `[id]/page.tsx`. panel ยัง render ได้ถ้าไม่มี analysis | `src/components/alerts/alert-analysis-panel.tsx` (new), `alert-detail.tsx` (mod), `[id]/page.tsx` (mod) | 🟡 | alert detail เดิมยังโชว์ครบ; กด Analyze → เห็น verdict. Playwright `alert-analysis.spec.ts` |
-| **T0.8** | [NEW] config `SOC_AUTO_ANALYZE`(off)/`SOC_AUTO_ANALYZE_MIN_LEVEL`(7) | `src/server/config.ts` | 🟢 | default off. app boot. env validation (`superRefine`) ผ่าน |
-| **T0.9** | [MOD] wire enqueue-on-ingest หลัง flag — fire-and-forget **pool ตัวเอง** `createDatabase()`+`finally pool.end()`; gate `inserted && level>=7 && config.socAutoAnalyze` | `src/app/api/integrations/wazuh/alerts/route.ts` (mod) | 🟡 | flag off → ingest route ทำงานเหมือนเดิม byte-for-byte. flag on → analyze row เกิด. webhook เดิม 202 ไม่ช้า (async) |
+| **T0.8** | [NEW] config `SOC_AUTO_ANALYZE`(off)/`SOC_AUTO_ANALYZE_MIN_LEVEL`(12) | `src/server/config.ts` | 🟢 | default off. app boot. env validation (`superRefine`) ผ่าน |
+| **T0.9** | [MOD] wire enqueue-on-ingest หลัง flag — fire-and-forget **pool ตัวเอง** `createDatabase()`+`finally pool.end()`; gate `inserted && level>=12 && config.socAutoAnalyze` | `src/app/api/integrations/wazuh/alerts/route.ts` (mod) | 🟡 | flag off → ingest route ทำงานเหมือนเดิม byte-for-byte. flag on → analyze row เกิด. webhook เดิม 202 ไม่ช้า (async) |
 | **T0.GATE** | **Phase 0 gate** — full `tsc`+`lint`+`vitest`+ Playwright + รัน app ทดสอบ Analyze flow จริง | — | — | baseline (T0.0) ยังเขียว + feature ใหม่ทำงาน. commit |
 
 **Phase 0 ส่งมอบ**: ปุ่ม Analyze → verdict SOC ละเอียด → persist → แสดง. ระบบเดิมเหมือนเดิมเมื่อ flag ปิด

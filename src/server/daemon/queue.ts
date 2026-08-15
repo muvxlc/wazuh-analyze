@@ -8,7 +8,7 @@ import { getPgBoss } from "./pg-boss";
 import { createDatabase } from "../db/client";
 import * as schema from "../db/schema";
 import { ActorContext } from "../authorization/permissions";
-import { resolveEffectiveConfig } from "../settings/service";
+import { resolveEffectiveConfig, parseTagScope } from "../settings/service";
 import { getSettingByKey } from "../settings/repository";
 import type { Database } from "../db/types";
 import { runAlertAnalysis } from "../ai/analyze-service";
@@ -423,22 +423,9 @@ export async function shouldAnalyzeAlert(
   if (!alert) return { shouldAnalyze: true, reason: null };
 
   const scopeRows = await getSettingByKey(db, "analysisTagScope");
-  const scopeRaw = scopeRows?.value;
-  let scope: { allowTags?: string[]; denyTags?: string[] } = {};
-  if (scopeRaw) {
-    try {
-      // updateSettings encrypts all values; decrypt before parsing.
-      const decrypted = scopeRaw && typeof scopeRaw === "object" && "iv" in scopeRaw
-        ? JSON.parse(decryptSecret(scopeRaw as Parameters<typeof decryptSecret>[0], config.settingsEncryptionKey))
-        : scopeRaw;
-      scope = (typeof decrypted === "string" ? JSON.parse(decrypted) : decrypted) as { allowTags?: string[]; denyTags?: string[] };
-    } catch {
-      // malformed value → treat scope as empty
-    }
-  }
-  const normalize = (tag: string) => tag.trim().toUpperCase();
-  const denyTags = (scope.denyTags ?? []).map(normalize).filter(Boolean);
-  const allowTags = (scope.allowTags ?? []).map(normalize).filter(Boolean);
+  const scope = parseTagScope(scopeRows?.value, config.settingsEncryptionKey) ?? { allowTags: [], denyTags: [] };
+  const denyTags = scope.denyTags.map((t) => t.trim().toUpperCase()).filter(Boolean);
+  const allowTags = scope.allowTags.map((t) => t.trim().toUpperCase()).filter(Boolean);
 
   const techniques = new Set(getRuleMitreTechniques(alert.ruleId, alert.rawPayload).map((t) => t.techniqueId.toUpperCase()));
   if (denyTags.some((tag) => techniques.has(tag))) return { shouldAnalyze: false, reason: "deny-tag" };

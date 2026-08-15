@@ -405,13 +405,14 @@ export default function SettingsSocPage() {
             </label>
             <textarea
               id="analysisAllowTags"
+              aria-describedby="analysisAllowHint"
               rows={4}
               value={state.allowTagsLines}
               onChange={(e) => setState((s) => ({ ...s, allowTagsLines: e.target.value, saved: false }))}
               className="auth-input font-mono text-xs"
               placeholder="T1046"
             />
-            <p className="text-xs text-[var(--color-ink-muted)]">{t("analysis-allow-hint")}</p>
+            <p id="analysisAllowHint" className="text-xs text-[var(--color-ink-muted)]">{t("analysis-allow-hint")}</p>
           </div>
           <div className="form-field">
             <label htmlFor="analysisDenyTags" className="text-sm text-[var(--color-ink-muted)]">
@@ -419,13 +420,14 @@ export default function SettingsSocPage() {
             </label>
             <textarea
               id="analysisDenyTags"
+              aria-describedby="analysisDenyHint"
               rows={4}
               value={state.denyTagsLines}
               onChange={(e) => setState((s) => ({ ...s, denyTagsLines: e.target.value, saved: false }))}
               className="auth-input font-mono text-xs"
               placeholder="T1055"
             />
-            <p className="text-xs text-[var(--color-ink-muted)]">{t("analysis-deny-hint")}</p>
+            <p id="analysisDenyHint" className="text-xs text-[var(--color-ink-muted)]">{t("analysis-deny-hint")}</p>
           </div>
         </div>
 

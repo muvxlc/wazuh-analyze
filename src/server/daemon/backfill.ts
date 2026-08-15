@@ -1,8 +1,9 @@
 import { sql, asc } from "drizzle-orm";
 import type { Database } from "../db/types";
 import { alerts, alertAnalyses } from "../db/schema";
-import { enqueueAlertAnalysis, QUEUE_ANALYZE_ALERT } from "./queue";
+import { enqueueAlertAnalysis, shouldAnalyzeAlert, QUEUE_ANALYZE_ALERT } from "./queue";
 import { setQueuePhase } from "./progress";
+import { loadConfig } from "../config";
 
 /**
  * Find alerts without an analysis record and enqueue them for analysis.
@@ -17,11 +18,16 @@ export async function enqueuePendingAlerts(db: Database, limit = 100): Promise<n
     .orderBy(asc(alerts.ingestedAt))
     .limit(limit);
 
+  const config = loadConfig(process.env);
+  let enqueued = 0;
   for (const row of rows) {
+    const gate = await shouldAnalyzeAlert(db, config, row.id);
+    if (!gate.shouldAnalyze) continue;
     await setQueuePhase(db, QUEUE_ANALYZE_ALERT, row.id, "queued");
     await enqueueAlertAnalysis(row.id).catch(() => {});
+    enqueued++;
   }
-  return rows.length;
+  return enqueued;
 }
 
 /** Count alerts that still lack an analysis record (for metrics card). */

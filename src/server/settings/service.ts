@@ -319,7 +319,7 @@ function parseCooldownMap(raw: unknown, encryptionKey: string): Record<string, n
 }
 
 /** Parse stored {allowTags, denyTags} scope; tolerant of malformed/missing. */
-function parseTagScope(
+export function parseTagScope(
   raw: unknown,
   encryptionKey: string,
 ): { allowTags: string[]; denyTags: string[] } | null {

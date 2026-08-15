@@ -56,6 +56,7 @@ const patchSchema = z
         allowTags: z.array(z.string()).optional(),
         denyTags: z.array(z.string()).optional(),
       })
+      .strict()
       .optional(),
   })
   .strict();

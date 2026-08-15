@@ -60,6 +60,31 @@ describe("shouldAnalyzeAlert", () => {
     return alert.id;
   }
 
+  async function insertNativeAlert(level: number, mitreIds: string[]) {
+    // ruleId 888 absent from fallback map → exercises native rawPayload.rule.mitre path.
+    const [alert] = await db
+      .insert(schema.alerts)
+      .values({
+        fingerprint: `native-scope-${Math.random()}`,
+        wazuhTimestamp: new Date(),
+        ruleId: "888",
+        agentId: "scope-agent",
+        ruleDescription: "test native rule",
+        level,
+        rawPayload: {
+          rule: {
+            mitre: {
+              id: mitreIds,
+              technique: ["Command and Scripting Interpreter"],
+              tactic: ["Execution"],
+            },
+          },
+        },
+      })
+      .returning({ id: schema.alerts.id });
+    return alert.id;
+  }
+
   async function seedScope(scope: { allowTags?: string[]; denyTags?: string[] }) {
     await upsertSetting(db, "analysisTagScope", encryptSecret(JSON.stringify(scope), KEY), null);
   }
@@ -104,6 +129,48 @@ describe("shouldAnalyzeAlert", () => {
   it("uses level gate only when scope is empty", async () => {
     await seedScope({ allowTags: [], denyTags: [] });
     const alertId = await insertAlert(12);
+    await expect(shouldAnalyzeAlert(db, config, alertId)).resolves.toEqual({
+      shouldAnalyze: true,
+      reason: null,
+    });
+  });
+
+  it("deny beats allow when same tag is in both lists", async () => {
+    await seedScope({ allowTags: ["T1046"], denyTags: ["T1046"] });
+    const alertId = await insertAlert(12);
+    await expect(shouldAnalyzeAlert(db, config, alertId)).resolves.toEqual({
+      shouldAnalyze: false,
+      reason: "deny-tag",
+    });
+  });
+
+  it("allow non-empty with no match yields no-allow-match", async () => {
+    await seedScope({ allowTags: ["T1055"] });
+    const alertId = await insertAlert(12);
+    await expect(shouldAnalyzeAlert(db, config, alertId)).resolves.toEqual({
+      shouldAnalyze: false,
+      reason: "no-allow-match",
+    });
+  });
+
+  it("missing alert falls through to allow", async () => {
+    await expect(
+      shouldAnalyzeAlert(db, config, "00000000-0000-0000-0000-000000000000"),
+    ).resolves.toEqual({ shouldAnalyze: true, reason: null });
+  });
+
+  it("malformed scope degrades to empty scope and level gate still applies", async () => {
+    await upsertSetting(db, "analysisTagScope", encryptSecret("not-json", KEY), null);
+    const alertId = await insertAlert(7);
+    await expect(shouldAnalyzeAlert(db, config, alertId)).resolves.toEqual({
+      shouldAnalyze: false,
+      reason: "below-level",
+    });
+  });
+
+  it("uses native rawPayload.rule.mitre path with lowercase id normalization", async () => {
+    await seedScope({ allowTags: ["T1059"] });
+    const alertId = await insertNativeAlert(12, ["t1059"]);
     await expect(shouldAnalyzeAlert(db, config, alertId)).resolves.toEqual({
       shouldAnalyze: true,
       reason: null,
