@@ -74,7 +74,7 @@ export function MobileDrawer({ isOpen, onClose, permissions }: MobileDrawerProps
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[280px] bg-[var(--color-canvas)] p-4 shadow-[var(--shadow-modal)]">
+      <div className="flex h-full w-[280px] flex-col overflow-y-auto bg-[var(--color-canvas)] p-4 shadow-[var(--shadow-modal)]">
         <div className="mb-4 flex items-center justify-between border-b border-[var(--color-hairline)] pb-2">
           <span className="font-medium">Wazuh</span>
           <button

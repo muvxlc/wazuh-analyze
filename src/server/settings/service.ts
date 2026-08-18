@@ -53,6 +53,7 @@ export const ALL_SETTING_KEYS: readonly SystemSettingKey[] = [
   "fpMemoryTtlDays",
   "fpMemorySeverityFloor",
   "analyzeCooldownSeconds",
+  "analysisTagScope",
 ];
 
 export function isKnownSettingKey(key: string): key is SystemSettingKey {
@@ -217,6 +218,8 @@ export interface SettingsView {
   wazuhIndexerPasswordSet: boolean;
   /** Per-rule analyze cooldown in seconds; {} = no overrides (use global default). */
   analyzeCooldownSeconds: Record<string, number>;
+  /** Tag allow/deny scope for analysis; null = no scope restriction. */
+  analysisTagScope: { allowTags: string[]; denyTags: string[] } | null;
   /** Per-key source flags: true = value came from DB row. */
   sources: Partial<Record<SystemSettingKey, boolean>>;
 }
@@ -262,6 +265,7 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       rows.get("analyzeCooldownSeconds")?.value,
       config.settingsEncryptionKey,
     ),
+    analysisTagScope: parseTagScope(rows.get("analysisTagScope")?.value, config.settingsEncryptionKey),
     sources: {
       wazuhApiUrl: src("wazuhApiUrl"),
       wazuhUsername: src("wazuhUsername"),
@@ -289,6 +293,7 @@ export async function getDisplayConfig(db: Database, config: AppConfig): Promise
       fpMemoryTtlDays: src("fpMemoryTtlDays"),
       fpMemorySeverityFloor: src("fpMemorySeverityFloor"),
       analyzeCooldownSeconds: src("analyzeCooldownSeconds"),
+      analysisTagScope: src("analysisTagScope"),
     },
   };
 }
@@ -311,6 +316,43 @@ function parseCooldownMap(raw: unknown, encryptionKey: string): Record<string, n
     return out;
   }
   return {};
+}
+
+/** Parse stored {allowTags, denyTags} scope; tolerant of malformed/missing. */
+export function parseTagScope(
+  raw: unknown,
+  encryptionKey: string,
+): { allowTags: string[]; denyTags: string[] } | null {
+  let parsed: unknown = raw;
+  if (raw && typeof raw === "object" && "iv" in raw) {
+    try {
+      parsed = JSON.parse(decryptSecret(raw as Parameters<typeof decryptSecret>[0], encryptionKey));
+    } catch {
+      return null;
+    }
+  }
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const obj = parsed as Record<string, unknown>;
+  const clean = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      : [];
+  return {
+    allowTags: clean(obj.allowTags),
+    denyTags: clean(obj.denyTags),
+  };
 }
 
 export interface UpdateSettingEntry {
